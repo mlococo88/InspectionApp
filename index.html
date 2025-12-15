@@ -1022,7 +1022,7 @@
         }
 
         window.refreshReport = () => loadReport();
-        window.generateReportPDF = () => generateReportPDF();
+        // window.generateReportPDF = () => generateReportPDF(); // REMOVED RECURSIVE LINE
 
         window.downloadAllPhotosZip = async () => {
             const photoItems = cachedItems.filter(item => item.type === 'photo');
