@@ -448,7 +448,7 @@
 
         function openBatchCaptionModal() {
             // Re-use caption modal for batch
-            document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
+            document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
             document.getElementById('modal-caption-input').value = "";
 
             document.getElementById('ai-caption-btn').classList.add('hidden'); // Hide AI button for batch
@@ -867,6 +867,7 @@
                 const gap = 5;
 
                 for (const p of loadedPhotos) {
+                    // Check if content fits on current page (Photo height + gap + text lines estimate)
                     if (y + photoH + 20 > doc.internal.pageSize.height - margin) {
                         doc.addPage();
                         y = margin;
@@ -902,9 +903,13 @@
                     doc.text("Observation Notes", margin, y); y += 10;
                     
                     for (const n of notes) {
-                        // Check if content fits on current page
-                        const estimatedLines = doc.splitTextToSize(n.text, pW - margin * 2).length;
-                        if (y + (estimatedLines * 4) + 10 > doc.internal.pageSize.height - margin) {
+                        // FIX: Ensure text estimation is done correctly before adding new page
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "normal");
+                        const textLines = doc.splitTextToSize(n.text, pW - margin * 2);
+                        const requiredSpace = (textLines.length * 4) + 10; // 4mm per line + 6mm gap
+                        
+                        if (y + requiredSpace > doc.internal.pageSize.height - margin) {
                             doc.addPage();
                             y = margin;
                         }
@@ -914,7 +919,6 @@
                         doc.text(`[Note] ${n.dateString}`, margin, y); y += 4;
                         
                         doc.setFont("helvetica", "normal");
-                        const textLines = doc.splitTextToSize(n.text, pW - margin * 2);
                         doc.text(textLines, margin, y);
                         y += (textLines.length * 4) + 6; 
                     }
@@ -923,7 +927,7 @@
                 doc.save(`Structural_Report_${currentProject}_${Date.now()}.pdf`);
             } catch (error) {
                 console.error("PDF Generation failed:", error);
-                alert("Report generation failed. See console for details.");
+                alert("Report generation failed. See console for details. (Likely image or text rendering failure)");
             } finally {
                 setLoading(false);
             }
