@@ -306,6 +306,9 @@
         let browserPath = `artifacts/${appId}/public/data/files`;
         let currentEditingItem = null;
         let currentReportFilter = 'photo'; 
+        
+        let isSeriesMode = false; // NEW STATE
+        let seriesPhotoQueue = []; // NEW STATE
 
         // INIT
         async function init() {
@@ -387,6 +390,21 @@
         }
 
         // --- CAMERA FLOW ---
+        window.toggleSeriesMode = () => {
+            isSeriesMode = !isSeriesMode;
+            const btn = document.getElementById('series-mode-btn');
+            const label = document.getElementById('photo-capture-label');
+
+            btn.classList.toggle('active', isSeriesMode);
+            btn.innerHTML = isSeriesMode ? 'SERIES MODE ACTIVE (Capture photos)' : 'Enable Photo Series';
+            label.innerText = isSeriesMode ? `Tap to capture #${seriesPhotoQueue.length + 1}` : 'Tap to Capture Photo';
+            
+            // If turning OFF and queue exists, open modal
+            if (!isSeriesMode && seriesPhotoQueue.length > 0) {
+                openBatchCaptionModal();
+            }
+        };
+
         function blobToBase64(blob) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -400,6 +418,21 @@
             const file = e.target.files[0];
             if (!file) return;
             pendingBlob = file;
+            
+            // 1. If in Series Mode, add to queue and wait
+            if (isSeriesMode) {
+                const id = Date.now().toString();
+                seriesPhotoQueue.push({ id, blob: pendingBlob, base64: null, timestamp: new Date() });
+                document.getElementById('photo-capture-label').innerText = `Tap to capture #${seriesPhotoQueue.length + 1}`;
+                
+                // Pre-calculate base64 for AI check later
+                blobToBase64(file).then(base64Data => {
+                    seriesPhotoQueue[seriesPhotoQueue.length - 1].base64 = base64Data;
+                });
+                return;
+            }
+
+            // 2. If Single Photo Mode, open regular caption modal
             const url = URL.createObjectURL(file);
             document.getElementById('modal-img-preview').src = url;
             document.getElementById('modal-caption-input').value = "";
@@ -413,11 +446,91 @@
             });
         }
 
-        window.cancelUpload = () => {
-            document.getElementById('caption-modal').classList.add('hidden');
-            document.getElementById('camera-input').value = "";
-            pendingBlob = null;
+        function openBatchCaptionModal() {
+            // Re-use caption modal for batch
+            document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
+            document.getElementById('modal-caption-input').value = "";
+
+            document.getElementById('ai-caption-btn').classList.add('hidden'); // Hide AI button for batch
+            document.getElementById('modal-save-btn').innerText = `Save & Upload ${seriesPhotoQueue.length} Photos`;
+            document.querySelector('#caption-modal h3').innerText = `Batch Captioning (${seriesPhotoQueue.length} Photos)`;
+            document.getElementById('caption-modal').classList.remove('hidden');
         }
+
+        window.cancelUpload = () => {
+            if (isSeriesMode) {
+                if (confirm(`Discard ${seriesPhotoQueue.length} photos?`)) {
+                    seriesPhotoQueue = [];
+                    document.getElementById('caption-modal').classList.add('hidden');
+                }
+            } else {
+                document.getElementById('caption-modal').classList.add('hidden');
+            }
+        }
+        
+        window.confirmUpload = async () => {
+            if (!user) return alert("Error: No user found.");
+            
+            let itemsToProcess = [];
+            let caption = document.getElementById('modal-caption-input').value.trim() || "No Caption";
+
+            if (seriesPhotoQueue.length > 0) {
+                // Batch upload
+                itemsToProcess = seriesPhotoQueue.map(p => ({
+                    blob: p.blob,
+                    id: p.id,
+                    caption: caption
+                }));
+                seriesPhotoQueue = [];
+            } else if (pendingBlob) {
+                // Single photo upload
+                itemsToProcess.push({
+                    blob: pendingBlob,
+                    id: Date.now().toString(),
+                    caption: caption
+                });
+                pendingBlob = null;
+            } else {
+                return alert("No photo ready for upload.");
+            }
+            
+            document.getElementById('modal-save-btn').disabled = true;
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('loading-text').innerText = `Uploading ${itemsToProcess.length} files...`;
+
+            try {
+                const uploadPromises = itemsToProcess.map(async (item) => {
+                    const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
+                    const storageRef = ref(storage, path);
+                    const snap = await uploadBytes(storageRef, item.blob);
+                    const url = await getDownloadURL(snap.ref);
+
+                    const docRef = doc(db, `artifacts/${appId}/public/data/images`, item.id);
+                    await setDoc(docRef, {
+                        id: item.id,
+                        type: 'photo',
+                        projectId: currentProject,
+                        url: url,
+                        storagePath: path,
+                        caption: item.caption,
+                        timestamp: parseInt(item.id),
+                        dateString: new Date(parseInt(item.id)).toLocaleString()
+                    });
+                });
+
+                await Promise.all(uploadPromises);
+                addProjectToSet(currentProject);
+                document.getElementById('caption-modal').classList.add('hidden');
+                switchTab('report');
+
+            } catch (e) {
+                console.error("Batch Upload Error:", e);
+                alert("Upload Failed: " + e.message);
+            } finally {
+                document.getElementById('modal-save-btn').disabled = false;
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+        };
 
         // --- GEMINI AI FUNCTION ---
         window.generateAICaption = async () => {
@@ -427,7 +540,7 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Analyzing...';
 
-            const systemPrompt = "You are a specialized structural inspection AI. Analyze the provided image of the structural component. Identify key features or potential defects (like rust, cracking, spalling, or moisture) and generate a single, concise, professional inspection note/caption (maximum 15 words). Do not describe the photo itself; focus on the observation.";
+            const systemPrompt = "You are a specialized structural inspection AI. Analyze the provided image of the structural component. Identify key features or potential defects (like rust, cracking, spalling, or spalling) and generate a single, concise, professional inspection note/caption (maximum 15 words). Do not describe the photo itself; focus on the observation.";
             
             const userQuery = `Analyze this image of a structural component.`;
             const apiKey = ""; 
@@ -470,54 +583,8 @@
             }
         };
 
-        window.confirmUpload = async () => {
-            if (!user || !pendingBlob) return alert("Error: No user or file.");
-            const caption = document.getElementById('modal-caption-input').value.trim() || "No Caption";
-            const btn = document.getElementById('modal-save-btn');
-            
-            btn.disabled = true;
-            btn.innerText = "Uploading...";
-            document.getElementById('loading-overlay').classList.remove('hidden');
 
-            try {
-                const id = Date.now().toString();
-                const path = `artifacts/${appId}/public/data/files/${currentProject}/${id}.jpg`;
-                const storageRef = ref(storage, path);
-                const snap = await uploadBytes(storageRef, pendingBlob);
-                const url = await getDownloadURL(snap.ref);
-
-                const docRef = doc(db, `artifacts/${appId}/public/data/images`, id);
-                await setDoc(docRef, {
-                    id: id,
-                    type: 'photo',
-                    projectId: currentProject,
-                    url: url,
-                    storagePath: path,
-                    caption: caption,
-                    timestamp: Date.now(),
-                    dateString: new Date().toLocaleString()
-                });
-
-                addProjectToSet(currentProject);
-                document.getElementById('caption-modal').classList.add('hidden');
-                document.getElementById('camera-input').value = "";
-                switchTab('report');
-
-            } catch (e) {
-                console.error(e);
-                if (e.code === 'storage/unauthorized') {
-                    alert("Permission Denied! Check Storage Rules.");
-                } else {
-                    alert("Upload Failed: " + e.message);
-                }
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Save & Upload";
-                document.getElementById('loading-overlay').classList.add('hidden');
-            }
-        }
-
-        // --- NOTE FLOW ---
+        // --- NOTE FLOW (Unchanged) ---
         window.confirmQuickNote = async () => {
             const textInput = document.getElementById('quick-note-input');
             const text = textInput.value.trim();
@@ -554,7 +621,7 @@
             }
         };
 
-        // --- EDITING FLOW ---
+        // --- EDITING FLOW (Unchanged) ---
         window.openEditorModal = (id, type) => {
             const item = cachedItems.find(i => i.id === id);
             if (!item) return;
@@ -620,7 +687,7 @@
         };
 
 
-        // --- REPORT LOG ---
+        // --- REPORT LOG (Unchanged) ---
         let reportUnsub;
         let cachedItems = []; 
         function loadReport() {
@@ -731,7 +798,7 @@
             });
         }
         
-        // --- PDF GENERATION LOGIC ---
+        // --- PDF GENERATION LOGIC (Refactored for concurrency) ---
         window.generateReportPDF = async () => {
             if (cachedItems.length === 0) return alert("Report is empty. Add photos or notes first.");
             
@@ -739,16 +806,34 @@
                 return alert("Error: PDF library (jspdf) failed to load. Please refresh the app.");
             }
             
-            setLoading(true, "Generating Report...");
+            setLoading(true, "Fetching Images and Generating Report...");
             
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ unit: 'mm', format: 'letter' });
-                let y = 15;
                 const margin = 15;
                 const pW = 215.9;
+                let y = margin;
+                
+                const photos = cachedItems.filter(i => i.type === 'photo');
+                const notes = cachedItems.filter(i => i.type === 'note');
 
-                // Title Page Header
+                // --- 1. CONCURRENT IMAGE FETCHING ---
+                const imageFetchPromises = photos.map(async (p) => {
+                    try {
+                        const response = await fetch(p.url);
+                        const blob = await response.blob();
+                        const base64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(blob); });
+                        return { ...p, base64 };
+                    } catch (e) {
+                        console.warn(`Failed to fetch image for ID ${p.id.substring(8)}:`, e);
+                        return { ...p, base64: null }; // Return item with null base64 on failure
+                    }
+                });
+
+                const loadedPhotos = await Promise.all(imageFetchPromises);
+
+                // --- 2. TITLE PAGE ---
                 doc.setFontSize(20);
                 doc.text(`Structural Inspection Report`, pW / 2, y, { align: 'center' }); y += 10;
                 doc.setFontSize(14);
@@ -756,11 +841,7 @@
                 doc.setFontSize(10);
                 doc.text(`Date Generated: ${new Date().toLocaleString()}`, pW / 2, y, { align: 'center' }); y += 15;
                 
-                // Separate photos and notes
-                const photos = cachedItems.filter(i => i.type === 'photo');
-                const notes = cachedItems.filter(i => i.type === 'note');
-
-                // --- PHOTO LOG SECTION ---
+                // --- 3. PHOTO LOG SECTION ---
                 doc.addPage(); y = margin;
                 doc.setFontSize(16);
                 doc.text("Photo Log", margin, y); y += 10;
@@ -768,24 +849,22 @@
                 const photoW = 80;
                 const photoH = 60;
                 const gap = 5;
-                let currentX = margin;
 
-                for (const p of photos) {
+                for (const p of loadedPhotos) {
                     if (y + photoH + 20 > doc.internal.pageSize.height - margin) {
                         doc.addPage();
                         y = margin;
                     }
 
-                    try {
-                        const response = await fetch(p.url);
-                        const blob = await response.blob();
-                        const base64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(blob); });
-                        doc.addImage(base64, 'JPEG', currentX, y, photoW, photoH);
-                    } catch (e) {
-                        console.error("Image fetch failed:", e);
-                        doc.text("Image Unavailable", currentX + 5, y + 30);
+                    const currentX = margin;
+
+                    if (p.base64) {
+                        doc.addImage(p.base64, 'JPEG', currentX, y, photoW, photoH);
+                    } else {
+                         doc.text("Image Unavailable", currentX + 5, y + 30);
                     }
 
+                    // Add Caption and Metadata
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
                     doc.text(`ID: ${p.id.substring(8)}`, currentX + photoW + gap, y + 4);
@@ -800,14 +879,16 @@
                     y += photoH + 10; 
                 }
 
-                // --- NOTES SECTION ---
+                // --- 4. NOTES SECTION ---
                 if (notes.length > 0) {
                     doc.addPage(); y = margin;
                     doc.setFontSize(16);
                     doc.text("Observation Notes", margin, y); y += 10;
                     
                     for (const n of notes) {
-                        if (y > doc.internal.pageSize.height - margin * 2) {
+                        // Check if content fits on current page
+                        const estimatedLines = doc.splitTextToSize(n.text, pW - margin * 2).length;
+                        if (y + (estimatedLines * 4) + 10 > doc.internal.pageSize.height - margin) {
                             doc.addPage();
                             y = margin;
                         }
@@ -1002,6 +1083,17 @@
         function updateStatus(s) {
             const ind = document.getElementById('status-indicator');
             ind.className = `w-2 h-2 rounded-full ${s === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
+        }
+
+        function setLoading(active, text="Processing...") {
+            const overlay = document.getElementById('loading-overlay');
+            const textEl = document.getElementById('loading-text');
+            if (active) {
+                textEl.innerText = text;
+                overlay.classList.remove('hidden');
+            } else {
+                overlay.classList.add('hidden');
+            }
         }
 
         init();
