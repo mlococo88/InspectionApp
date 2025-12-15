@@ -10,8 +10,13 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .nav-item.active { color: #2563eb; }
-        /* Smooth scrolling for logs */
-        .smooth-scroll { scroll-behavior: smooth; }
+        .report-nav-item.active { border-color: #2563eb; color: #2563eb; background-color: #ebf5ff; }
+        /* Style for active series mode button */
+        #series-mode-btn.active {
+            background-color: #f59e0b; /* Amber 500 */
+            color: #1f2937; /* Dark text */
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.5);
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -52,7 +57,11 @@
                     </div>
                     <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
                 </label>
-                <p class="text-sm text-gray-500 font-medium">Tap to Capture</p>
+                <p class="text-sm text-gray-500 font-medium" id="photo-capture-label">Tap to Capture Photo</p>
+                
+                <button id="series-mode-btn" onclick="toggleSeriesMode()" class="px-4 py-1.5 rounded-full text-sm font-bold shadow transition border border-gray-300">
+                    <span id="series-mode-text">Enable Photo Series</span>
+                </button>
             </div>
         </div>
 
@@ -83,6 +92,7 @@
 
     <!-- TAB 2: REPORT LOG (FIRESTORE) -->
     <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
+        
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-800">Inspection Log</h2>
             <!-- NEW REPORT BUTTON -->
@@ -96,6 +106,31 @@
             <input type="text" id="report-search" placeholder="Search logs..." class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
+        <!-- Report Sub-Navigation -->
+        <div class="flex border-b border-gray-300 mb-4">
+            <button id="nav-log-photos" class="report-nav-item active px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('photo')">Photo Log</button>
+            <button id="nav-log-notes" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('note')">Notes Log</button>
+            <button id="nav-log-all" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('all')">All Entries</button>
+        </div>
+
+        <!-- Photo Log Controls -->
+        <div id="photo-log-controls" class="mb-4 flex justify-end gap-2">
+            <button id="download-photos-btn" onclick="downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Photos (ZIP)
+            </button>
+
+            <!-- NEW NOTES DOWNLOAD BUTTON -->
+             <button id="download-notes-btn" onclick="downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m-7 8h14a2 2 0 002-2V5a2 2 0 00-2-2H9.586a1 1 0 01-.707-.293l-4.414 4.414a1 1 0 01-.293.707V19a2 2 0 002 2z" />
+                </svg>
+                Download Notes (TXT)
+            </button>
+        </div>
+        
         <div id="report-feed" class="space-y-4">
             <div class="text-center text-gray-500 py-10">Loading inspection data...</div>
         </div>
@@ -155,8 +190,6 @@
             </div>
         </div>
     </div>
-
-    <!-- NOTE ENTRY MODAL (REMOVED) -->
 
     <!-- LOG EDITOR MODAL (New Universal Editor) -->
     <div id="editor-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
@@ -247,6 +280,18 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, getDocs, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        
+        import 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        
+        function saveAs(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
 
         // CONFIG
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
@@ -259,7 +304,8 @@
         let pendingBlob = null;
         let pendingBase64 = null;
         let browserPath = `artifacts/${appId}/public/data/files`;
-        let currentEditingItem = null; // Stores the entire item object being edited
+        let currentEditingItem = null;
+        let currentReportFilter = 'photo'; 
 
         // INIT
         async function init() {
@@ -287,6 +333,10 @@
             
             updateProjectHeader();
             renderProjectOptions();
+            // FIX: Use setTimeout to ensure DOM elements exist before setting filter
+            setTimeout(() => {
+                window.setReportFilter(currentReportFilter);
+            }, 0);
         }
 
         // --- PROJECT MANAGEMENT ---
@@ -588,17 +638,42 @@
                 renderReport(items);
             });
         }
+        
+        window.setReportFilter = (filter) => {
+            currentReportFilter = filter;
+            // Update button styles
+            document.querySelectorAll('.report-nav-item').forEach(btn => {
+                if (btn) btn.classList.remove('active');
+            });
+            const activeBtn = document.getElementById(`nav-log-${filter}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            // Set Download Button Visibility
+            const btnPhotos = document.getElementById('download-photos-btn');
+            const btnNotes = document.getElementById('download-notes-btn');
+            
+            if (btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
+            if (btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
+
+            renderReport(cachedItems);
+        }
 
         function renderReport(items) {
             const feed = document.getElementById('report-feed');
             feed.innerHTML = "";
             
-            if (items.length === 0) {
-                feed.innerHTML = `<div class="text-center text-gray-400 py-10">No observations for ${currentProject} yet.</div>`;
+            const filteredItems = items.filter(item => {
+                if (currentReportFilter === 'photo') return item.type === 'photo';
+                if (currentReportFilter === 'note') return item.type === 'note';
+                return true; // 'all'
+            });
+            
+            if (filteredItems.length === 0) {
+                feed.innerHTML = `<div class="text-center text-gray-400 py-10">No ${currentReportFilter !== 'all' ? currentReportFilter + ' ' : ''} observations for ${currentProject} yet.</div>`;
                 return;
             }
 
-            items.forEach(item => {
+            filteredItems.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
                 
@@ -659,90 +734,102 @@
         // --- PDF GENERATION LOGIC ---
         window.generateReportPDF = async () => {
             if (cachedItems.length === 0) return alert("Report is empty. Add photos or notes first.");
-            setLoading(true, "Generating Report...");
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ unit: 'mm', format: 'letter' });
-            let y = 15;
-            const margin = 15;
-            const pW = 215.9;
-
-            // Title Page Header
-            doc.setFontSize(20);
-            doc.text(`Structural Inspection Report`, pW / 2, y, { align: 'center' }); y += 10;
-            doc.setFontSize(14);
-            doc.text(`Project ID: ${currentProject}`, pW / 2, y, { align: 'center' }); y += 10;
-            doc.setFontSize(10);
-            doc.text(`Date Generated: ${new Date().toLocaleString()}`, pW / 2, y, { align: 'center' }); y += 15;
             
-            // Separate photos and notes
-            const photos = cachedItems.filter(i => i.type === 'photo');
-            const notes = cachedItems.filter(i => i.type === 'note');
-
-            // --- PHOTO LOG SECTION ---
-            doc.addPage(); y = margin;
-            doc.setFontSize(16);
-            doc.text("Photo Log", margin, y); y += 10;
-
-            const photoW = 80;
-            const photoH = 60;
-            const gap = 5;
-            let currentX = margin;
-
-            for (const p of photos) {
-                if (y + photoH + 20 > doc.internal.pageSize.height - margin) {
-                    doc.addPage();
-                    y = margin;
-                }
-
-                try {
-                    const response = await fetch(p.url);
-                    const blob = await response.blob();
-                    const base64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(blob); });
-                    doc.addImage(base64, 'JPEG', currentX, y, photoW, photoH);
-                } catch (e) {
-                    console.error("Image fetch failed:", e);
-                    doc.text("Image Unavailable", currentX + 5, y + 30);
-                }
-
-                doc.setFontSize(9);
-                doc.setFont("helvetica", "bold");
-                doc.text(`ID: ${p.id.substring(8)}`, currentX + photoW + gap, y + 4);
-                
-                doc.setFont("helvetica", "normal");
-                doc.text(p.dateString, currentX + photoW + gap, y + 8);
-                
-                doc.setFontSize(10);
-                const captionLines = doc.splitTextToSize(p.caption, pW - (currentX + photoW + gap) - margin);
-                doc.text(captionLines, currentX + photoW + gap, y + 14);
-
-                y += photoH + 10; 
+            if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+                return alert("Error: PDF library (jspdf) failed to load. Please refresh the app.");
             }
+            
+            setLoading(true, "Generating Report...");
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+                let y = 15;
+                const margin = 15;
+                const pW = 215.9;
 
-            // --- NOTES SECTION ---
-            if (notes.length > 0) {
+                // Title Page Header
+                doc.setFontSize(20);
+                doc.text(`Structural Inspection Report`, pW / 2, y, { align: 'center' }); y += 10;
+                doc.setFontSize(14);
+                doc.text(`Project ID: ${currentProject}`, pW / 2, y, { align: 'center' }); y += 10;
+                doc.setFontSize(10);
+                doc.text(`Date Generated: ${new Date().toLocaleString()}`, pW / 2, y, { align: 'center' }); y += 15;
+                
+                // Separate photos and notes
+                const photos = cachedItems.filter(i => i.type === 'photo');
+                const notes = cachedItems.filter(i => i.type === 'note');
+
+                // --- PHOTO LOG SECTION ---
                 doc.addPage(); y = margin;
                 doc.setFontSize(16);
-                doc.text("Observation Notes", margin, y); y += 10;
-                
-                for (const n of notes) {
-                    if (y > doc.internal.pageSize.height - margin * 2) {
+                doc.text("Photo Log", margin, y); y += 10;
+
+                const photoW = 80;
+                const photoH = 60;
+                const gap = 5;
+                let currentX = margin;
+
+                for (const p of photos) {
+                    if (y + photoH + 20 > doc.internal.pageSize.height - margin) {
                         doc.addPage();
                         y = margin;
                     }
-                    
-                    doc.setFontSize(10);
+
+                    try {
+                        const response = await fetch(p.url);
+                        const blob = await response.blob();
+                        const base64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(blob); });
+                        doc.addImage(base64, 'JPEG', currentX, y, photoW, photoH);
+                    } catch (e) {
+                        console.error("Image fetch failed:", e);
+                        doc.text("Image Unavailable", currentX + 5, y + 30);
+                    }
+
+                    doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
-                    doc.text(`[Note] ${n.dateString}`, margin, y); y += 4;
+                    doc.text(`ID: ${p.id.substring(8)}`, currentX + photoW + gap, y + 4);
                     
                     doc.setFont("helvetica", "normal");
-                    const textLines = doc.splitTextToSize(n.text, pW - margin * 2);
-                    doc.text(textLines, margin, y);
-                    y += (textLines.length * 4) + 6; 
-                }
-            }
+                    doc.text(p.dateString, currentX + photoW + gap, y + 8);
+                    
+                    doc.setFontSize(10);
+                    const captionLines = doc.splitTextToSize(p.caption, pW - (currentX + photoW + gap) - margin);
+                    doc.text(captionLines, currentX + photoW + gap, y + 14);
 
-            doc.save(`Structural_Report_${currentProject}_${Date.now()}.pdf`);
-            setLoading(false);
+                    y += photoH + 10; 
+                }
+
+                // --- NOTES SECTION ---
+                if (notes.length > 0) {
+                    doc.addPage(); y = margin;
+                    doc.setFontSize(16);
+                    doc.text("Observation Notes", margin, y); y += 10;
+                    
+                    for (const n of notes) {
+                        if (y > doc.internal.pageSize.height - margin * 2) {
+                            doc.addPage();
+                            y = margin;
+                        }
+                        
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "bold");
+                        doc.text(`[Note] ${n.dateString}`, margin, y); y += 4;
+                        
+                        doc.setFont("helvetica", "normal");
+                        const textLines = doc.splitTextToSize(n.text, pW - margin * 2);
+                        doc.text(textLines, margin, y);
+                        y += (textLines.length * 4) + 6; 
+                    }
+                }
+
+                doc.save(`Structural_Report_${currentProject}_${Date.now()}.pdf`);
+            } catch (error) {
+                console.error("PDF Generation failed:", error);
+                alert("Report generation failed. See console for details.");
+            } finally {
+                setLoading(false);
+            }
         };
 
         // --- FILES BROWSER ---
@@ -855,7 +942,56 @@
 
         window.refreshReport = () => loadReport();
         window.generateReportPDF = () => generateReportPDF();
-        
+
+        window.downloadAllPhotosZip = async () => {
+            const photoItems = cachedItems.filter(item => item.type === 'photo');
+            if (photoItems.length === 0) return alert("No photos to download for this project.");
+            
+            setLoading(true, "Preparing ZIP download...");
+            
+            try {
+                const zip = new JSZip();
+                
+                const downloadPromises = photoItems.map(async (p) => {
+                    if (p.storagePath) {
+                        const response = await fetch(p.url);
+                        const blob = await response.blob();
+                        const filename = `${currentProject}_${p.id.substring(8)}_${p.caption.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20)}.jpg`;
+                        zip.file(filename, blob);
+                    }
+                });
+
+                await Promise.all(downloadPromises);
+
+                const content = await zip.generateAsync({ type: "blob" });
+                saveAs(content, `${currentProject}_Photos.zip`);
+            } catch (e) {
+                console.error("ZIP Download failed:", e);
+                alert("Download failed. Check console for details.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // --- NEW: DOWNLOAD NOTES TXT REPORT ---
+        window.downloadNotesTextReport = () => {
+            const noteItems = cachedItems.filter(item => item.type === 'note');
+            if (noteItems.length === 0) return alert("No notes available to download for this project.");
+
+            let textContent = `STRUCTURAL INSPECTION NOTES REPORT\nProject ID: ${currentProject}\nGenerated: ${new Date().toLocaleString()}\n\n========================================\n\n`;
+
+            noteItems.forEach((n, index) => {
+                textContent += `--- NOTE #${index + 1} (ID: ${n.id.substring(8)}) ---\n`;
+                textContent += `Date: ${n.dateString}\n`;
+                textContent += `Project: ${n.projectId}\n\n`;
+                textContent += `${n.text}\n\n`;
+                textContent += `----------------------------------------\n\n`;
+            });
+
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+            saveAs(blob, `${currentProject}_Notes_Report.txt`);
+        };
+
         window.copyFirestoreRules = () => {
             navigator.clipboard.writeText(document.getElementById('fs-rules').innerText).then(()=>alert("Firestore Rules Copied! Paste into Firestore Console."));
         }
