@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Structural Inspection Log</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; padding-bottom: 80px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-item.active { color: #2563eb; }
+        /* Smooth scrolling for logs */
+        .smooth-scroll { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- TOP HEADER -->
+    <header class="bg-white shadow-sm sticky top-0 z-20 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+        <div>
+            <h1 class="text-lg font-bold text-blue-800">Structural<span class="text-gray-800">Log</span></h1>
+            <p class="text-xs text-gray-500" id="project-header">Project: Bridge-001</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <div id="status-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
+            <button onclick="document.getElementById('settings-modal').classList.remove('hidden')" class="p-2 text-gray-500 hover:text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- TAB 1: INSPECT (CAMERA) -->
+    <div id="tab-inspect" class="tab-content active p-4 max-w-lg mx-auto">
+        
+        <!-- Camera Button -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">
+            <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
+                <span class="font-bold text-gray-700">New Observation</span>
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Camera</span>
+            </div>
+            <div class="p-8 flex flex-col items-center justify-center space-y-4">
+                <label for="camera-input" class="cursor-pointer group relative">
+                    <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <!-- The actual input -->
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+                </label>
+                <p class="text-sm text-gray-500 font-medium">Tap to Capture Photo</p>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 mb-2">Inspection Tips</h3>
+            <ul class="text-xs text-blue-700 list-disc list-inside space-y-1">
+                <li>Ensure adequate lighting for crack detection.</li>
+                <li>Include a reference scale (ruler/coin) if possible.</li>
+                <li>Captions are searchable in the report view.</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- TAB 2: REPORT LOG (FIRESTORE) -->
+    <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Inspection Log</h2>
+            <button onclick="refreshReport()" class="text-sm text-blue-600 font-semibold hover:text-blue-800">Refresh</button>
+        </div>
+        
+        <!-- Filter/Search -->
+        <div class="mb-4">
+            <input type="text" id="report-search" placeholder="Search captions..." class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div id="report-feed" class="space-y-4">
+            <div class="text-center text-gray-500 py-10">Loading inspection data...</div>
+        </div>
+    </div>
+
+    <!-- TAB 3: RAW FILES (STORAGE BROWSER) -->
+    <div id="tab-files" class="tab-content p-4 max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="font-bold text-gray-700">Raw Storage Browser</h2>
+                <div class="flex gap-2">
+                    <button onclick="browserUp()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">⬆ Up</button>
+                    <button onclick="refreshBrowser()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">↻</button>
+                </div>
+            </div>
+            <div id="browser-path" class="text-xs font-mono text-gray-500 mb-2 truncate">/</div>
+            <div id="browser-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
+                <!-- Raw files -->
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex justify-around items-center h-16 z-30 pb-safe">
+        <button onclick="switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+            <span class="text-xl">📷</span>
+            <span class="text-[10px] font-bold mt-1">Inspect</span>
+        </button>
+        <button onclick="switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+            <span class="text-xl">📋</span>
+            <span class="text-[10px] font-bold mt-1">Report</span>
+        </button>
+        <button onclick="switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+            <span class="text-xl">🗄️</span>
+            <span class="text-[10px] font-bold mt-1">Raw Files</span>
+        </button>
+    </nav>
+
+    <!-- CAPTION MODAL (Hidden) -->
+    <div id="caption-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
+        <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
+            <div class="relative h-64 bg-gray-100 flex items-center justify-center">
+                <img id="modal-img-preview" class="max-h-full max-w-full object-contain">
+            </div>
+            <div class="p-6">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Inspection Note / Caption</label>
+                <textarea id="modal-caption-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 resize-none" placeholder="e.g. Hairline crack, vertical, approx 2mm width"></textarea>
+                
+                <div class="flex gap-3">
+                    <button onclick="cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition">Discard</button>
+                    <button onclick="confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition">Save & Upload</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Settings</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Project ID</label>
+                    <input type="text" id="setting-pid" value="Bridge-001" class="w-full border border-gray-300 rounded p-2 text-sm" onchange="updateProjectID(this.value)">
+                </div>
+                
+                <div class="bg-yellow-50 p-3 rounded border border-yellow-200">
+                    <h4 class="text-xs font-bold text-yellow-800 mb-1">Legacy Import</h4>
+                    <p class="text-[10px] text-yellow-700 mb-2">Found files in storage but not in the report? Run this scanner.</p>
+                    <button onclick="importLegacyFiles()" class="w-full bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs font-bold py-2 rounded border border-yellow-300">
+                        Scan & Import Missing Photos
+                    </button>
+                </div>
+
+                <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                    <h4 class="text-xs font-bold text-gray-800 mb-1">Debug Rules</h4>
+                    <button onclick="copyFirestoreRules()" class="w-full bg-white hover:bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded border border-gray-300 mb-2">
+                        Copy Firestore Rules
+                    </button>
+                    <button onclick="copyStorageRules()" class="w-full bg-white hover:bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded border border-gray-300">
+                        Copy Storage Rules
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="mt-6 w-full py-3 bg-gray-800 text-white font-bold rounded-lg">Close</button>
+        </div>
+    </div>
+
+    <!-- Hidden Rules for Copying -->
+    <div id="fs-rules" class="hidden">rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /artifacts/{appId}/public/data/images/{document=**} { allow read, write: if request.auth != null; } } }</div>
+    <div id="st-rules" class="hidden">rules_version = '2'; service firebase.storage { match /b/{bucket}/o { match /artifacts/{appId}/public/data/files/{allPaths=**} { allow read, write: if request.auth != null; } } }</div>
+
+    <!-- PROCESSING OVERLAY -->
+    <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white">
+        <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div>
+        <p id="loading-text" class="font-medium">Uploading...</p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, getDocs, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // CONFIG
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
+        const config = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD2jsJTjSlWf3SINS3u4fz3Lu5IYbI6N94", authDomain: "field-cam.firebaseapp.com", projectId: "field-cam", storageBucket: "field-cam.firebasestorage.app", messagingSenderId: "952385597528", appId: "1:952385597528:web:3a5b2011a4cc2b29e41a2d" };
+
+        let db, storage, auth, user;
+        let currentProject = "Bridge-001";
+        let pendingBlob = null;
+        let browserPath = `artifacts/${appId}/public/data/files`;
+
+        // INIT
+        async function init() {
+            const app = initializeApp(config);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            storage = getStorage(app);
+
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                updateStatus(u ? 'online' : 'offline');
+                if(u) {
+                    loadReport();
+                    browserPath = `artifacts/${appId}/public/data/files`;
+                    loadBrowser(browserPath);
+                }
+            });
+
+            // Auth Strategy
+            const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            if (token) { try { await signInWithCustomToken(auth, token); } catch { await signInAnonymously(auth); } }
+            else { await signInAnonymously(auth); }
+
+            // Event Listeners
+            document.getElementById('camera-input').onchange = handleCameraInput;
+            document.getElementById('report-search').oninput = (e) => filterReport(e.target.value);
+        }
+
+        // --- CAMERA FLOW ---
+        function handleCameraInput(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Compress/Resize logic could go here, for now direct blob
+            pendingBlob = file;
+            
+            const url = URL.createObjectURL(file);
+            document.getElementById('modal-img-preview').src = url;
+            document.getElementById('modal-caption-input').value = ""; // clear previous
+            document.getElementById('caption-modal').classList.remove('hidden');
+        }
+
+        window.cancelUpload = () => {
+            document.getElementById('caption-modal').classList.add('hidden');
+            document.getElementById('camera-input').value = ""; // Reset input
+            pendingBlob = null;
+        }
+
+        window.confirmUpload = async () => {
+            if (!user || !pendingBlob) return alert("Error: No user or file.");
+            const caption = document.getElementById('modal-caption-input').value.trim() || "No Caption";
+            const btn = document.getElementById('modal-save-btn');
+            
+            // UI Loading state
+            btn.disabled = true;
+            btn.innerText = "Uploading...";
+            document.getElementById('loading-overlay').classList.remove('hidden');
+
+            try {
+                const id = Date.now().toString();
+                // 1. Upload File
+                const path = `artifacts/${appId}/public/data/files/${currentProject}/${id}.jpg`;
+                const storageRef = ref(storage, path);
+                const snap = await uploadBytes(storageRef, pendingBlob);
+                const url = await getDownloadURL(snap.ref);
+
+                // 2. Upload Metadata (Firestore)
+                const docRef = doc(db, `artifacts/${appId}/public/data/images`, id);
+                await setDoc(docRef, {
+                    id: id,
+                    projectId: currentProject,
+                    url: url,
+                    storagePath: path,
+                    caption: caption,
+                    timestamp: Date.now(),
+                    dateString: new Date().toLocaleString()
+                });
+
+                // Success
+                document.getElementById('caption-modal').classList.add('hidden');
+                document.getElementById('camera-input').value = "";
+                switchTab('report'); // Auto switch to report to see result
+
+            } catch (e) {
+                console.error(e);
+                alert("Upload Failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Save & Upload";
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+        }
+
+        // --- REPORT LOG (Firestore) ---
+        let reportUnsub;
+        function loadReport() {
+            if (reportUnsub) reportUnsub();
+            const q = query(
+                collection(db, `artifacts/${appId}/public/data/images`), 
+                where("projectId", "==", currentProject)
+            );
+
+            reportUnsub = onSnapshot(q, (snap) => {
+                const items = [];
+                snap.forEach(d => items.push(d.data()));
+                items.sort((a,b) => b.timestamp - a.timestamp); // Descending
+                renderReport(items);
+            });
+        }
+
+        function renderReport(items) {
+            const feed = document.getElementById('report-feed');
+            feed.innerHTML = "";
+            
+            if (items.length === 0) {
+                feed.innerHTML = `<div class="text-center text-gray-400 py-10">No observations for ${currentProject} yet.</div>`;
+                return;
+            }
+
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
+                div.innerHTML = `
+                    <div class="w-1/3 bg-gray-100 flex-shrink-0 relative cursor-pointer" onclick="window.open( '${item.url}', '_blank')">
+                        <img src="${item.url}" class="absolute inset-0 w-full h-full object-cover">
+                    </div>
+                    <div class="p-3 flex-1 flex flex-col justify-between">
+                        <div>
+                            <div class="text-xs text-gray-400 font-mono mb-1">${item.dateString || "Unknown Date"}</div>
+                            <p class="text-sm text-gray-800 font-medium leading-snug">${item.caption}</p>
+                        </div>
+                        <div class="flex justify-end mt-2">
+                            <button onclick="deleteEntry('${item.id}', '${item.storagePath}')" class="text-xs text-red-500 hover:text-red-700 font-bold px-2 py-1 rounded hover:bg-red-50">Delete</button>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(div);
+            });
+        }
+
+        window.deleteEntry = async (id, path) => {
+            if(!confirm("Delete this entry permanently?")) return;
+            try {
+                // Delete doc
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/images`, id));
+                // Delete file (best effort)
+                if(path) await deleteObject(ref(storage, path)).catch(e => console.warn("File delete fail", e));
+            } catch(e) { alert("Delete error: "+e.message); }
+        }
+
+        function filterReport(txt) {
+            // Client side filter of current DOM items for speed
+            const lower = txt.toLowerCase();
+            const cards = document.querySelectorAll('#report-feed > div');
+            cards.forEach(c => {
+                const text = c.innerText.toLowerCase();
+                c.style.display = text.includes(lower) ? 'flex' : 'none';
+            });
+        }
+
+        // --- FILES BROWSER (Storage) ---
+        async function loadBrowser(path) {
+            browserPath = path;
+            const grid = document.getElementById('browser-grid');
+            document.getElementById('browser-path').innerText = path;
+            grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm">Scanning...</div>';
+
+            try {
+                const res = await listAll(ref(storage, path));
+                grid.innerHTML = "";
+
+                // Folders
+                res.prefixes.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "bg-yellow-50 border border-yellow-200 rounded p-3 text-center cursor-pointer hover:bg-yellow-100";
+                    div.onclick = () => loadBrowser(p.fullPath);
+                    div.innerHTML = `<div class="text-2xl mb-1">📁</div><div class="text-xs truncate font-bold text-yellow-800">${p.name}</div>`;
+                    grid.appendChild(div);
+                });
+
+                // Files
+                for (const item of res.items) {
+                    const url = await getDownloadURL(item);
+                    const div = document.createElement('div');
+                    div.className = "bg-white border border-gray-200 rounded overflow-hidden shadow-sm relative group";
+                    div.innerHTML = `
+                        <div class="h-24 bg-gray-100 relative">
+                            <img src="${url}" class="w-full h-full object-cover">
+                        </div>
+                        <div class="p-2 text-[10px] text-gray-500 truncate">${item.name}</div>
+                        <a href="${url}" target="_blank" class="absolute inset-0"></a>
+                    `;
+                    grid.appendChild(div);
+                }
+                
+                if(res.prefixes.length === 0 && res.items.length === 0) {
+                    grid.innerHTML = '<div class="col-span-full text-center text-gray-300 text-sm py-4">Empty Folder</div>';
+                }
+
+            } catch(e) {
+                console.warn("Browser Access Error (Safe to ignore if setting up):", e.code);
+                if(e.code === 'storage/unauthorized') {
+                    grid.innerHTML = `
+                        <div class="col-span-full text-center text-red-500 text-xs py-4 p-4 border border-red-200 rounded bg-red-50">
+                            <p class="font-bold">Setup Required</p>
+                            <p class="mt-1">The app needs permission to browse files.</p>
+                            <button onclick="document.getElementById('settings-modal').classList.remove('hidden')" class="mt-2 bg-red-100 text-red-700 px-3 py-1 rounded text-xs border border-red-300">Open Setup & Rules</button>
+                        </div>`;
+                } else if (e.code === 'storage/object-not-found') {
+                     grid.innerHTML = `<div class="col-span-full text-center text-gray-400 text-xs py-4">Folder not found (yet). Take a photo to create it.</div>`;
+                } else {
+                    grid.innerHTML = `<div class="col-span-full text-center text-red-400 text-xs py-4">Error: ${e.code}</div>`;
+                }
+            }
+        }
+
+        window.browserUp = () => {
+            const parts = browserPath.split('/');
+            // Prevent going above "artifacts" which might trigger unauthorized if rules are tight
+            if(parts.length > 1) { 
+                parts.pop(); 
+                loadBrowser(parts.join('/')); 
+            }
+        };
+        window.refreshBrowser = () => loadBrowser(browserPath);
+
+        // --- LEGACY IMPORT ---
+        window.importLegacyFiles = async () => {
+            if(!confirm("Scan storage for files not in the Logbook? This may take a moment.")) return;
+            const btn = document.querySelector('button[onclick="importLegacyFiles()"]');
+            btn.innerText = "Scanning..."; btn.disabled = true;
+            
+            try {
+                let count = 0;
+                // Recursive scan helper
+                const scan = async (refDir) => {
+                    const res = await listAll(refDir);
+                    for(const f of res.items) {
+                        // Check if exists? Skip for speed, just overwrite
+                        const id = f.name.split('.')[0];
+                        const url = await getDownloadURL(f);
+                        await setDoc(doc(db, `artifacts/${appId}/public/data/images`, id), {
+                            id: id, projectId: currentProject, url: url, storagePath: f.fullPath,
+                            caption: "Imported from Storage", timestamp: Date.now(), dateString: "Imported"
+                        }, { merge: true });
+                        count++;
+                    }
+                    for(const p of res.prefixes) await scan(p);
+                };
+                
+                // Start scan at root artifacts
+                await scan(ref(storage, `artifacts/${appId}`));
+                alert(`Imported ${count} files to ${currentProject} log.`);
+            } catch(e) { alert("Scan error: " + e.message); }
+            finally { btn.innerText = "Scan & Import Missing Photos"; btn.disabled = false; }
+        }
+
+        // --- UTILS ---
+        window.switchTab = (id) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active', 'text-blue-600'));
+            
+            document.getElementById(`tab-${id}`).classList.add('active');
+            document.getElementById(`nav-${id}`).classList.add('active', 'text-blue-600');
+            
+            if(id === 'files') loadBrowser(browserPath);
+        }
+
+        window.updateProjectID = (val) => {
+            currentProject = val;
+            document.getElementById('project-header').innerText = `Project: ${val}`;
+            loadReport();
+        }
+
+        window.refreshReport = () => loadReport();
+        
+        window.copyFirestoreRules = () => {
+            navigator.clipboard.writeText(document.getElementById('fs-rules').innerText).then(()=>alert("Firestore Rules Copied!"));
+        }
+        window.copyStorageRules = () => {
+            navigator.clipboard.writeText(document.getElementById('st-rules').innerText).then(()=>alert("Storage Rules Copied!"));
+        }
+
+        function updateStatus(s) {
+            const ind = document.getElementById('status-indicator');
+            ind.className = `w-2 h-2 rounded-full ${s === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
+        }
+
+        init();
+    </script>
+</body>
+</html>
