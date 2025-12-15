@@ -817,7 +817,7 @@
                     const response = await fetch(p.url);
                     const blob = await response.blob();
                     
-                    // FIX: Use Canvas redraw to strip EXIF orientation data
+                    // FIX: Use Canvas redraw to strip EXIF orientation data and correctly format aspect ratio
                     const base64 = await new Promise((resolve, reject) => {
                         const img = new Image();
                         img.onload = function() {
@@ -827,13 +827,13 @@
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0);
                             const dataURL = canvas.toDataURL('image/jpeg', 0.9);
-                            resolve(dataURL.split(',')[1]); // Return only base64 part
+                            resolve({ base64: dataURL.split(',')[1], width: img.naturalWidth, height: img.naturalHeight }); 
                         };
                         img.onerror = reject;
                         img.src = URL.createObjectURL(blob);
                     });
                     
-                    return { ...p, base64 };
+                    return { ...p, base64: base64.base64, width: base64.width, height: base64.height };
                 } catch (e) {
                     console.warn(`Failed to fetch image for ID ${p.id.substring(8)}:`, e);
                     return { ...p, base64: null };
@@ -855,13 +855,25 @@
             doc.setFontSize(16);
             doc.text("Photo Log", margin, y); y += 10;
 
-            const photoW = 80;
-            const photoH = 60;
+            const targetPhotoW = 80; // Fixed width for photo on PDF
             const gap = 5;
 
             for (const p of loadedPhotos) {
-                // Check if content fits on current page (Photo height + gap + text lines estimate)
-                if (y + photoH + 20 > doc.internal.pageSize.height - margin) {
+                // Calculate dynamic height based on aspect ratio
+                let photoW = targetPhotoW;
+                let photoH = 60; // Default if aspect ratio calculation fails
+                
+                if (p.base64 && p.width && p.height) {
+                    const aspectRatio = p.height / p.width;
+                    photoH = targetPhotoW * aspectRatio;
+                    // Cap max height for single column layout
+                    if (photoH > 100) photoH = 100; 
+                }
+
+                const requiredSpace = photoH + 20;
+
+                // Check if content fits on current page
+                if (y + requiredSpace > doc.internal.pageSize.height - margin) {
                     doc.addPage();
                     y = margin;
                 }
@@ -877,14 +889,14 @@
                 // Add Caption and Metadata
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "bold");
-                doc.text(`ID: ${p.id.substring(8)}`, currentX + photoW + gap, y + 4);
+                doc.text(`ID: ${p.id.substring(8)}`, currentX + targetPhotoW + gap, y + 4);
                 
                 doc.setFont("helvetica", "normal");
-                doc.text(p.dateString, currentX + photoW + gap, y + 8);
+                doc.text(p.dateString, currentX + targetPhotoW + gap, y + 8);
                 
                 doc.setFontSize(10);
-                const captionLines = doc.splitTextToSize(p.caption, pW - (currentX + photoW + gap) - margin);
-                doc.text(captionLines, currentX + photoW + gap, y + 14);
+                const captionLines = doc.splitTextToSize(p.caption, pW - (currentX + targetPhotoW + gap) - margin);
+                doc.text(captionLines, currentX + targetPhotoW + gap, y + 14);
 
                 y += photoH + 10; 
             }
