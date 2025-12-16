@@ -64,7 +64,7 @@
                 </label>
                 <p class="text-sm text-gray-500 font-medium" id="photo-capture-label">Tap to Capture Photo</p>
                 
-                <button id="series-mode-btn" onclick="toggleSeriesMode()" class="px-4 py-1.5 rounded-full text-sm font-bold shadow transition border border-gray-300">
+                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-4 py-1.5 rounded-full text-sm font-bold shadow transition border border-gray-300">
                     <span id="series-mode-text">Enable Photo Series</span>
                 </button>
             </div>
@@ -78,7 +78,7 @@
             </div>
             <div class="p-4 space-y-3">
                 <textarea id="quick-note-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none" placeholder="Type detailed observation here..."></textarea>
-                <button onclick="confirmQuickNote()" id="quick-note-save-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg shadow transition">
+                <button onclick="window.confirmQuickNote()" id="quick-note-save-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg shadow transition">
                     Save Note
                 </button>
             </div>
@@ -95,17 +95,15 @@
 
     </div>
 
-    <!-- TAB 2: REPORT LOG (FIRESTORE) -->
+    <!-- TAB 2: REPORT LOG -->
     <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-800">Inspection Log</h2>
-            <!-- NEW REPORT BUTTON -->
             <button onclick="window.generateReportPDF()" class="text-sm bg-red-600 text-white font-semibold hover:bg-red-700 px-3 py-1.5 rounded-lg shadow transition">
                 Generate Report PDF
             </button>
         </div>
         
-        <!-- Filter/Search/Sort -->
         <div class="mb-4 space-y-2">
             <div class="flex gap-2">
                 <input type="text" id="report-search" placeholder="Search logs..." class="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -116,29 +114,15 @@
             </div>
         </div>
 
-        <!-- Report Sub-Navigation (IDs FIXED to match filter logic) -->
         <div class="flex border-b border-gray-300 mb-4">
             <button id="nav-log-photos" class="report-nav-item active px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('photo')">Photo Log</button>
             <button id="nav-log-notes" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('note')">Notes Log</button>
             <button id="nav-log-all" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('all')">All Entries</button>
         </div>
 
-        <!-- Photo Log Controls -->
         <div id="photo-log-controls" class="mb-4 flex justify-end gap-2">
-            <button id="download-photos-btn" onclick="downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download Photos (ZIP)
-            </button>
-
-            <!-- NEW NOTES DOWNLOAD BUTTON -->
-             <button id="download-notes-btn" onclick="downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m-7 8h14a2 2 0 002-2V5a2 2 0 00-2-2H9.586a1 1 0 01-.707-.293l-4.414 4.414a1 1 0 01-.293.707V19a2 2 0 002 2z" />
-                </svg>
-                Download Notes (TXT)
-            </button>
+            <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">Download Photos (ZIP)</button>
+             <button id="download-notes-btn" onclick="window.downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">Download Notes (TXT)</button>
         </div>
         
         <div id="report-feed" class="space-y-4">
@@ -157,44 +141,42 @@
         </div>
     </div>
 
-    <!-- TAB 4: RAW FILES (STORAGE BROWSER) -->
+    <!-- TAB 4: RAW FILES -->
     <div id="tab-files" class="tab-content p-4 max-w-4xl mx-auto">
         <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
                 <h2 class="font-bold text-gray-700">Raw Storage Browser</h2>
                 <div class="flex gap-2">
-                    <button onclick="browserUp()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">⬆ Up</button>
-                    <button onclick="refreshBrowser()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">↻</button>
+                    <button onclick="window.browserUp()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">⬆ Up</button>
+                    <button onclick="window.refreshBrowser()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">↻</button>
                 </div>
             </div>
             <div id="browser-path" class="text-xs font-mono text-gray-500 mb-2 truncate">/</div>
-            <div id="browser-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
-                <!-- Raw files -->
-            </div>
+            <div id="browser-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
 
     <!-- BOTTOM NAV -->
     <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex justify-around items-center h-16 z-30 pb-safe">
-        <button onclick="switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+        <button onclick="window.switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">📷</span>
             <span class="text-[10px] font-bold mt-1">Inspect</span>
         </button>
-        <button onclick="switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+        <button onclick="window.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">📋</span>
             <span class="text-[10px] font-bold mt-1">Report</span>
         </button>
-        <button onclick="switchTab('map')" id="nav-map" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+        <button onclick="window.switchTab('map')" id="nav-map" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">🗺️</span>
             <span class="text-[10px] font-bold mt-1">Map</span>
         </button>
-        <button onclick="switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+        <button onclick="window.switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">🗄️</span>
             <span class="text-[10px] font-bold mt-1">Raw Files</span>
         </button>
     </nav>
 
-    <!-- PHOTO CAPTION MODAL -->
+    <!-- MODALS -->
     <div id="caption-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
         <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
             <div class="relative h-64 bg-gray-100 flex items-center justify-center">
@@ -202,77 +184,56 @@
             </div>
             <div class="p-6">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Photo Caption</label>
-                <textarea id="modal-caption-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 resize-none" placeholder="e.g. Hairline crack, vertical, approx 2mm width"></textarea>
-                
-                <button id="ai-caption-btn" onclick="generateAICaption()" class="w-full mb-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow transition flex items-center justify-center gap-2">
-                    Analyze & Suggest Caption ✨
-                </button>
-                
+                <textarea id="modal-caption-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 resize-none" placeholder="e.g. Hairline crack..."></textarea>
+                <button id="ai-caption-btn" onclick="window.generateAICaption()" class="w-full mb-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow transition">Analyze & Suggest Caption ✨</button>
                 <div class="flex gap-3">
-                    <button onclick="cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition">Discard</button>
-                    <button onclick="confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition">Save & Upload</button>
+                    <button onclick="window.cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg">Discard</button>
+                    <button onclick="window.confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Save & Upload</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- LOG EDITOR MODAL -->
     <div id="editor-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
         <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
             <div class="bg-gray-100 p-4 border-b border-gray-200 flex justify-between items-center">
                 <h3 class="font-bold text-gray-800" id="editor-title">Edit Log Entry</h3>
-                <button onclick="closeEditorModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                <button onclick="window.closeEditorModal()" class="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div class="p-6 space-y-4">
-                <div id="editor-photo-preview" class="hidden relative h-32 bg-gray-100 mb-3 flex items-center justify-center border border-gray-200 rounded">
-                    <img id="editor-preview-img" class="max-h-full max-w-full object-contain">
-                </div>
+                <div id="editor-photo-preview" class="hidden relative h-32 bg-gray-100 mb-3 flex items-center justify-center border border-gray-200 rounded"><img id="editor-preview-img" class="max-h-full max-w-full object-contain"></div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1" id="editor-label">Text</label>
-                <textarea id="editor-text-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-sans"></textarea>
-                
-                <button onclick="updateLogEntry()" id="editor-save-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition">
-                    Save Changes
-                </button>
+                <textarea id="editor-text-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 resize-none"></textarea>
+                <button onclick="window.updateLogEntry()" id="editor-save-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Changes</button>
             </div>
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-800">Settings</h3>
-                <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="text-gray-400 font-bold text-lg">✕</button>
-            </div>
-            
+            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-gray-800">Settings</h3><button onclick="document.getElementById('settings-modal').classList.add('hidden')">✕</button></div>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Active Project</label>
                     <div class="flex gap-2">
-                        <select id="project-select" class="flex-1 border border-gray-300 rounded p-2 text-sm bg-white" onchange="switchProject(this.value)"></select>
-                        <button onclick="toggleNewProjectInput()" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-lg font-bold shadow hover:bg-blue-200 transition">+</button>
+                        <select id="project-select" class="flex-1 border border-gray-300 rounded p-2 text-sm bg-white" onchange="window.switchProject(this.value)"></select>
+                        <button onclick="window.toggleNewProjectInput()" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-lg font-bold">+</button>
                     </div>
                     <div id="new-project-div" class="hidden mt-2 p-2 bg-blue-50 rounded border border-blue-100">
                         <input type="text" id="new-project-input" placeholder="Enter Project ID" class="w-full border border-blue-200 rounded p-2 text-sm mb-2">
-                        <div class="flex gap-2"><button onclick="createNewProject()" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded">Create</button><button onclick="toggleNewProjectInput()" class="bg-gray-200 text-gray-600 px-3 rounded text-xs">Cancel</button></div>
+                        <div class="flex gap-2"><button onclick="window.createNewProject()" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded">Create</button><button onclick="window.toggleNewProjectInput()" class="bg-gray-200 text-gray-600 px-3 rounded text-xs">Cancel</button></div>
                     </div>
                 </div>
-                <div class="bg-yellow-50 p-3 rounded border border-yellow-200"><button onclick="importLegacyFiles()" class="w-full bg-yellow-100 text-yellow-800 text-xs font-bold py-2 rounded">Scan & Import Missing Photos</button></div>
-                <div class="bg-gray-50 p-3 rounded border border-gray-200"><button onclick="copyStorageRules()" class="w-full bg-white text-gray-600 text-xs font-bold py-2 rounded">Copy Storage Rules</button></div>
+                <div class="bg-yellow-50 p-3 rounded border border-yellow-200"><button onclick="window.importLegacyFiles()" class="w-full bg-yellow-100 text-yellow-800 text-xs font-bold py-2 rounded">Scan & Import Missing Photos</button></div>
+                <div class="bg-gray-50 p-3 rounded border border-gray-200"><button onclick="window.copyStorageRules()" class="w-full bg-white text-gray-600 text-xs font-bold py-2 rounded">Copy Storage Rules</button></div>
             </div>
             <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="mt-6 w-full py-3 bg-gray-800 text-white font-bold rounded-lg">Close</button>
         </div>
     </div>
-
-    <!-- Hidden Rules -->
-    <div id="fs-rules" class="hidden">rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /artifacts/{appId}/public/data/images/{document=**} { allow read, write: if request.auth != null; } } }</div>
+    
     <div id="st-rules" class="hidden">rules_version = '2'; service firebase.storage { match /b/{bucket}/o { match /artifacts/{appId}/{allPaths=**} { allow read, write: if request.auth != null; } } }</div>
-
-    <!-- PROCESSING OVERLAY -->
-    <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white">
-        <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div>
-        <p id="loading-text" class="font-medium">Uploading...</p>
-    </div>
+    <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[60]">Photo Added</div>
+    <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white"><div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div><p id="loading-text" class="font-medium">Uploading...</p></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script type="module">
@@ -299,8 +260,13 @@
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
 
-        // -- MOVED FUNCTION DEFINITIONS UP TO PREVENT REFERENCE ERRORS --
+        // -- CORE FUNCTIONS MOVED TO TOP SCOPE --
         
+        function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
+        function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
+        function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
+
         async function loadBrowser(path) {
             browserPath = path;
             const grid = document.getElementById('browser-grid');
@@ -312,7 +278,7 @@
                 res.prefixes.forEach(p => {
                     const div = document.createElement('div');
                     div.className = "bg-yellow-50 border border-yellow-200 rounded p-3 text-center cursor-pointer hover:bg-yellow-100";
-                    div.onclick = () => loadBrowser(p.fullPath);
+                    div.onclick = () => window.loadBrowser(p.fullPath);
                     div.innerHTML = `<div class="text-2xl mb-1">📁</div><div class="text-xs truncate font-bold text-yellow-800">${p.name}</div>`;
                     grid.appendChild(div);
                 });
@@ -342,34 +308,36 @@
             doc.setFontSize(20); doc.text(`Structural Inspection Report`, pW/2, y, {align:'center'}); y+=10;
             doc.setFontSize(14); doc.text(`Project: ${currentProject}`, pW/2, y, {align:'center'}); y+=15;
 
-            doc.setFontSize(16); doc.text("Photo Log", margin, y); y+=10;
-            const loadedPhotos = await Promise.all(photos.map(async p => {
-                try {
-                    const resp = await fetch(p.url); const blob = await resp.blob();
-                    const base64 = await new Promise((r) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r({data:c.toDataURL('image/jpeg', 0.8).split(',')[1], w:img.naturalWidth, h:img.naturalHeight}); }; img.src = URL.createObjectURL(blob); });
-                    return { ...p, base64: base64.data, w: base64.w, h: base64.h };
-                } catch { return { ...p, base64: null }; }
-            }));
+            if (photos.length > 0) {
+                doc.setFontSize(16); doc.text("Photo Log", margin, y); y+=10;
+                const loadedPhotos = await Promise.all(photos.map(async p => {
+                    try {
+                        const resp = await fetch(p.url); const blob = await resp.blob();
+                        const base64 = await new Promise((r) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r({data:c.toDataURL('image/jpeg', 0.8).split(',')[1], w:img.naturalWidth, h:img.naturalHeight}); }; img.src = URL.createObjectURL(blob); });
+                        return { ...p, base64: base64.data, w: base64.w, h: base64.h };
+                    } catch { return { ...p, base64: null }; }
+                }));
 
-            const targetW = 80; const gap = 5;
-            for (let i = 0; i < loadedPhotos.length; i++) {
-                const p = loadedPhotos[i];
-                let photoH = 60;
-                if(p.w && p.h) photoH = targetW * (p.h / p.w);
-                if(photoH > 100) photoH = 100;
-                
-                const rowH = photoH + 25;
-                if (y + rowH > 270) { doc.addPage(); y = margin; }
+                const targetW = 80;
+                for (let i = 0; i < loadedPhotos.length; i++) {
+                    const p = loadedPhotos[i];
+                    let photoH = 60;
+                    if(p.w && p.h) photoH = targetW * (p.h / p.w);
+                    if(photoH > 100) photoH = 100;
+                    
+                    const rowH = photoH + 25;
+                    if (y + rowH > 270) { doc.addPage(); y = margin; }
 
-                const col = i % 2;
-                const xPos = margin + (col * (targetW + 10));
-                if (col === 0 && i > 0) y += rowH; // Just approximation for grid
+                    const col = i % 2;
+                    const xPos = margin + (col * (targetW + 10));
+                    if (col === 0 && i > 0) y += rowH; 
 
-                if(p.base64) doc.addImage(p.base64, 'JPEG', xPos, y, targetW, photoH);
-                doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.text(`Photo #${p.id.substring(8)}`, xPos, y+photoH+5);
-                doc.setFont("helvetica", "normal"); const split = doc.splitTextToSize(p.caption, targetW); doc.text(split, xPos, y+photoH+10);
+                    if(p.base64) doc.addImage(p.base64, 'JPEG', xPos, y, targetW, photoH);
+                    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.text(`Photo #${p.id.substring(8)}`, xPos, y+photoH+5);
+                    doc.setFont("helvetica", "normal"); const split = doc.splitTextToSize(p.caption, targetW); doc.text(split, xPos, y+photoH+10);
+                }
+                y += 80; 
             }
-            y += 80; 
 
             if (notes.length > 0) {
                 doc.addPage(); y = margin; doc.setFontSize(16); doc.text("Field Notes", margin, y); y+=10; doc.setFontSize(10);
@@ -381,6 +349,201 @@
             }
             doc.save(`Report_${currentProject}.pdf`);
         }
+
+        function initMap() {
+            if (typeof L === 'undefined' || !document.getElementById('map-container')) return;
+            if (!mapInstance) {
+                mapInstance = L.map('map-container').setView([39.8, -98.5], 4);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+                markerGroup = L.layerGroup().addTo(mapInstance);
+            }
+            markerGroup.clearLayers();
+            let bounds = [];
+            cachedItems.forEach(item => {
+                if (item.lat && item.lng) {
+                    const m = L.marker([item.lat, item.lng]).bindPopup(item.caption || item.text);
+                    markerGroup.addLayer(m);
+                    bounds.push([item.lat, item.lng]);
+                }
+            });
+            if(bounds.length) mapInstance.fitBounds(bounds, {padding:[50,50]});
+        }
+
+        function renderReport(items) {
+            const feed = document.getElementById('report-feed');
+            feed.innerHTML = "";
+            let filtered = items.filter(i => currentReportFilter === 'all' || i.type === currentReportFilter);
+            filtered = filtered.sort((a,b) => currentSort === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
+
+            if(filtered.length === 0) { feed.innerHTML = `<div class="text-center text-gray-400 py-10">No items found.</div>`; return; }
+
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
+                let left = item.type === 'note' ? `<div class="w-16 bg-yellow-50 flex items-center justify-center text-2xl">📝</div>` : `<div class="w-1/3 bg-gray-100 relative"><img src="${item.url}" class="absolute inset-0 w-full h-full object-cover"></div>`;
+                div.innerHTML = `${left}<div class="p-3 flex-1 flex flex-col justify-between"><div><div class="text-xs text-gray-400 mb-1 flex justify-between"><span>${item.dateString}</span>${item.lat?'<span>📍</span>':''}</div><p class="text-sm font-medium">${item.caption || item.text}</p></div><div class="flex justify-end gap-2 mt-2"><button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold">Edit</button><button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold">Delete</button></div></div>`;
+                feed.appendChild(div);
+            });
+        }
+
+        function loadReport() {
+            const q = query(collection(db, `artifacts/${appId}/public/data/images`), where("projectId", "==", currentProject));
+            onSnapshot(q, (s) => { 
+                cachedItems = []; s.forEach(d=>cachedItems.push(d.data())); 
+                renderReport(cachedItems); 
+                if(document.getElementById('tab-map').style.display === 'block') initMap();
+            });
+        }
+
+        function filterReport(txt) {
+            const lower = txt.toLowerCase();
+            const cards = document.querySelectorAll('#report-feed > div');
+            cards.forEach(c => { c.style.display = c.innerText.toLowerCase().includes(lower) ? 'flex' : 'none'; });
+        }
+
+        // --- GLOBAL EXPORTS (Before Init) ---
+        window.loadBrowser = loadBrowser; // Fix reference error
+        window.cancelUpload = () => { if(isSeriesMode && confirm("Discard queue?")) seriesPhotoQueue=[]; document.getElementById('caption-modal').classList.add('hidden'); };
+        window.toggleSeriesMode = () => { isSeriesMode=!isSeriesMode; document.getElementById('series-mode-btn').classList.toggle('active', isSeriesMode); if(!isSeriesMode && seriesPhotoQueue.length>0) openBatchCaptionModal(); };
+        window.openEditorModal = (id, type) => { currentEditingItem = cachedItems.find(i=>i.id===id); document.getElementById('editor-modal').classList.remove('hidden'); document.getElementById('editor-text-input').value = type==='photo'?currentEditingItem.caption:currentEditingItem.text; };
+        window.closeEditorModal = () => document.getElementById('editor-modal').classList.add('hidden');
+        window.updateLogEntry = async () => { const txt = document.getElementById('editor-text-input').value; await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), currentEditingItem.type==='photo'?{caption:txt}:{text:txt}, {merge:true}); window.closeEditorModal(); };
+        window.deleteEntry = async (id, path) => { if(confirm("Delete?")) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/images`, id)); if(path) deleteObject(ref(storage, path)); } };
+        window.switchTab = (id) => { 
+            document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active')); document.getElementById(`tab-${id}`).classList.add('active'); 
+            document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active','text-blue-600')); document.getElementById(`nav-${id}`).classList.add('active','text-blue-600');
+            if(id==='map') setTimeout(initMap, 200);
+            if(id==='files') loadBrowser(browserPath);
+        }
+        window.updateProjectID = (v) => { currentProject=v; document.getElementById('project-header').innerText=`Project: ${v}`; loadReport(); };
+        window.toggleNewProjectInput = () => document.getElementById('new-project-div').classList.toggle('hidden');
+        window.createNewProject = () => { const v=document.getElementById('new-project-input').value; if(v){ addProjectToSet(v); window.switchProject(v); } };
+        window.switchProject = (v) => { currentProject=v; localStorage.setItem('fc_active_project',v); updateProjectHeader(); loadReport(); };
+        window.setSortOrder = (o) => { currentSort=o; renderReport(cachedItems); };
+        window.browserUp = () => { const p=browserPath.split('/'); if(p.length>1){p.pop();loadBrowser(p.join('/'));} };
+        window.refreshBrowser = () => loadBrowser(browserPath);
+        window.copyStorageRules = () => navigator.clipboard.writeText(document.getElementById('st-rules').innerText);
+        window.importLegacyFiles = async () => { if(confirm("Scan storage?")) { const scan=async(r,pn)=>{const l=await listAll(r);for(const f of l.items){const id=f.name.split('.')[0];const u=await getDownloadURL(f);await setDoc(doc(db,`artifacts/${appId}/public/data/images`,id),{id,projectId:pn||"Unsorted",url:u,storagePath:f.fullPath,caption:"Imported",timestamp:Date.now(),dateString:"Imported"},{merge:true});}for(const p of l.prefixes){addProjectToSet(p.name);await scan(p,p.name);}}; await scan(ref(storage,`artifacts/${appId}/public/data/files`),"Unsorted"); alert("Done"); } };
+        
+        window.setReportFilter = (filter) => {
+            currentReportFilter = filter;
+            const btns = { 'photo': 'nav-log-photos', 'note': 'nav-log-notes', 'all': 'nav-log-all' };
+            for (const key in btns) {
+                const el = document.getElementById(btns[key]);
+                if(el) { el.classList.remove('active'); if(key===filter) el.classList.add('active'); }
+            }
+            const btnPhotos = document.getElementById('download-photos-btn');
+            const btnNotes = document.getElementById('download-notes-btn');
+            if(btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
+            if(btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
+            renderReport(cachedItems);
+        };
+
+        window.generateReportPDF = async () => {
+            setLoading(true, "Generating Report...");
+            try { await _generatePDF_Core(); } catch(e) { console.error(e); alert("PDF Error"); } finally { setLoading(false); }
+        };
+
+        window.downloadAllPhotosZip = async () => {
+            const photos = cachedItems.filter(i => i.type === 'photo');
+            if (photos.length === 0) return alert("No photos.");
+            setLoading(true, "Zipping...");
+            try {
+                const zip = new JSZip();
+                const promises = photos.map(async p => { if(p.storagePath) { const r=await fetch(p.url); const b=await r.blob(); zip.file(`${p.projectId}_${p.id}.jpg`, b); } });
+                await Promise.all(promises);
+                const c = await zip.generateAsync({type:"blob"});
+                saveAs(c, `${currentProject}_Photos.zip`);
+            } catch(e) { console.error(e); alert("Zip Failed"); } finally { setLoading(false); }
+        };
+
+        window.downloadNotesTextReport = () => {
+            const notes = cachedItems.filter(i => i.type === 'note');
+            if (notes.length === 0) return alert("No notes.");
+            let txt = `NOTES REPORT - ${currentProject}\n\n`;
+            notes.forEach(n => { txt += `[${n.dateString}]\n${n.text}\n-----------------\n`; });
+            saveAs(new Blob([txt],{type:'text/plain'}), `${currentProject}_Notes.txt`);
+        };
+
+        window.handleCameraInput = (e) => {
+            const file = e.target.files[0]; if(!file) return; pendingBlob=file;
+            if (isSeriesMode) {
+                const id = Date.now().toString();
+                seriesPhotoQueue.push({ id, blob: pendingBlob, base64: null, timestamp: new Date() });
+                showToast(`Photo #${seriesPhotoQueue.length} Added`);
+                document.getElementById('photo-capture-label').innerText = `Series Active: ${seriesPhotoQueue.length} photos`;
+                e.target.value = "";
+                blobToBase64(file).then(b => { seriesPhotoQueue[seriesPhotoQueue.length - 1].base64 = b; });
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            document.getElementById('modal-img-preview').src=url;
+            document.getElementById('modal-caption-input').value="";
+            document.getElementById('ai-caption-btn').classList.remove('hidden');
+            document.getElementById('modal-save-btn').innerText = "Save & Upload";
+            document.getElementById('caption-modal').classList.remove('hidden');
+            blobToBase64(file).then(b=>{pendingBase64=b});
+        };
+
+        window.confirmUpload = async () => {
+             if(!user) return alert("Error: No user found.");
+             let itemsToProcess = [];
+             let caption = document.getElementById('modal-caption-input').value.trim() || "No Caption";
+             if (seriesPhotoQueue.length > 0) {
+                 itemsToProcess = seriesPhotoQueue.map(p => ({ blob: p.blob, id: p.id, caption: caption }));
+                 seriesPhotoQueue = [];
+                 document.getElementById('photo-capture-label').innerText = "Tap to Capture Photo";
+             } else if (pendingBlob) {
+                 itemsToProcess.push({ blob: pendingBlob, id: Date.now().toString(), caption: caption });
+                 pendingBlob = null;
+             } else { return alert("No photo ready."); }
+             
+             setLoading(true, `Uploading ${itemsToProcess.length} files...`);
+             try {
+                 const uploads = itemsToProcess.map(async (item) => {
+                     const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
+                     const snap = await uploadBytes(ref(storage, path), item.blob);
+                     const url = await getDownloadURL(snap.ref);
+                     await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
+                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
+                     });
+                 });
+                 await Promise.all(uploads);
+                 addProjectToSet(currentProject);
+                 document.getElementById('caption-modal').classList.add('hidden');
+                 isSeriesMode = false;
+                 document.getElementById('series-mode-btn').classList.remove('active');
+                 document.getElementById('series-mode-btn').innerHTML = '<span id="series-icon">🔄</span> Enable Photo Series';
+                 switchTab('report');
+             } catch(e) { alert("Upload Failed: " + e.message); } finally { setLoading(false); }
+        };
+
+        window.confirmQuickNote = async () => { 
+             const txt = document.getElementById('quick-note-input').value; if(!txt) return;
+             await setDoc(doc(db, `artifacts/${appId}/public/data/images`, Date.now().toString()), {
+                 id: Date.now().toString(), type:'note', projectId:currentProject, text:txt, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
+             });
+             document.getElementById('quick-note-input').value="";
+             loadReport();
+        };
+        
+        window.generateAICaption = async () => {
+            if (!pendingBase64) return alert("Photo still loading.");
+            const btn = document.getElementById('ai-caption-btn'); btn.disabled=true; btn.innerText="Analyzing...";
+            const key = ""; 
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({contents:[{parts:[{text:"Analyze structural defect, return short caption max 15 words."},{inlineData:{mimeType:"image/jpeg",data:pendingBase64}}]}]})
+                });
+                const res = await r.json();
+                document.getElementById('modal-caption-input').value = res.candidates[0].content.parts[0].text.trim();
+            } catch(e) { console.error(e); alert("AI Failed"); } finally { btn.disabled=false; btn.innerText="Analyze & Suggest Caption ✨"; }
+        };
+
+        function addProjectToSet(p){ knownProjects.add(p); localStorage.setItem('fc_projects', JSON.stringify(Array.from(knownProjects))); renderProjectOptions(); }
+        function renderProjectOptions() { const s=document.getElementById('project-select'); s.innerHTML=''; Array.from(knownProjects).sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.text=p;if(p===currentProject)o.selected=true;s.appendChild(o)}); }
+        function updateProjectHeader() { document.getElementById('project-header').innerText=`Project: ${currentProject}`; }
 
         // --- INIT ---
         async function init() {
@@ -406,152 +569,8 @@
             if (navigator.geolocation) navigator.geolocation.watchPosition(p => currentLocation = { lat: p.coords.latitude, lng: p.coords.longitude });
 
             updateProjectHeader(); renderProjectOptions();
-            // FIX: Ensure elements exist
             setTimeout(() => window.setReportFilter(currentReportFilter), 100);
         }
-
-        // --- MAP ---
-        function initMap() {
-            if (typeof L === 'undefined' || !document.getElementById('map-container')) return;
-            if (!mapInstance) {
-                mapInstance = L.map('map-container').setView([39.8, -98.5], 4);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
-                markerGroup = L.layerGroup().addTo(mapInstance);
-            }
-            markerGroup.clearLayers();
-            let bounds = [];
-            cachedItems.forEach(item => {
-                if (item.lat && item.lng) {
-                    const m = L.marker([item.lat, item.lng]).bindPopup(item.caption || item.text);
-                    markerGroup.addLayer(m);
-                    bounds.push([item.lat, item.lng]);
-                }
-            });
-            if(bounds.length) mapInstance.fitBounds(bounds, {padding:[50,50]});
-        }
-
-        // --- GLOBAL WRAPPERS ---
-        window.setReportFilter = (filter) => {
-            currentReportFilter = filter;
-            const btns = { 'photo': 'nav-log-photos', 'note': 'nav-log-notes', 'all': 'nav-log-all' };
-            for (const key in btns) {
-                const el = document.getElementById(btns[key]);
-                if(el) el.classList.toggle('active', key === filter);
-            }
-            const btnPhotos = document.getElementById('download-photos-btn');
-            const btnNotes = document.getElementById('download-notes-btn');
-            if(btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
-            if(btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
-            renderReport(cachedItems);
-        };
-
-        window.generateReportPDF = async () => {
-            setLoading(true, "Generating Report...");
-            try { await _generatePDF_Core(); } catch(e) { console.error(e); alert("PDF Error"); } finally { setLoading(false); }
-        };
-
-        // --- DATA LOADERS ---
-        function loadReport() {
-            const q = query(collection(db, `artifacts/${appId}/public/data/images`), where("projectId", "==", currentProject));
-            onSnapshot(q, (s) => { 
-                cachedItems = []; s.forEach(d=>cachedItems.push(d.data())); 
-                renderReport(cachedItems); 
-                if(document.getElementById('tab-map').style.display === 'block') initMap();
-            });
-        }
-
-        function renderReport(items) {
-            const feed = document.getElementById('report-feed');
-            feed.innerHTML = "";
-            let filtered = items.filter(i => currentReportFilter === 'all' || i.type === currentReportFilter);
-            filtered = filtered.sort((a,b) => currentSort === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
-
-            if(filtered.length === 0) { feed.innerHTML = `<div class="text-center text-gray-400 py-10">No items found.</div>`; return; }
-
-            filtered.forEach(item => {
-                const div = document.createElement('div');
-                div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
-                let left = item.type === 'note' ? `<div class="w-16 bg-yellow-50 flex items-center justify-center text-2xl">📝</div>` : `<div class="w-1/3 bg-gray-100 relative"><img src="${item.url}" class="absolute inset-0 w-full h-full object-cover"></div>`;
-                div.innerHTML = `${left}<div class="p-3 flex-1 flex flex-col justify-between"><div><div class="text-xs text-gray-400 mb-1">${item.dateString}</div><p class="text-sm font-medium">${item.caption || item.text}</p></div><div class="flex justify-end gap-2 mt-2"><button onclick="openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold">Edit</button><button onclick="deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold">Delete</button></div></div>`;
-                feed.appendChild(div);
-            });
-        }
-
-        // --- HELPERS ---
-        function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
-        window.cancelUpload = () => { if(isSeriesMode && confirm("Discard queue?")) seriesPhotoQueue=[]; document.getElementById('caption-modal').classList.add('hidden'); };
-        window.toggleSeriesMode = () => { isSeriesMode=!isSeriesMode; document.getElementById('series-mode-btn').classList.toggle('active', isSeriesMode); if(!isSeriesMode && seriesPhotoQueue.length>0) openBatchCaptionModal(); };
-        window.openEditorModal = (id, type) => { currentEditingItem = cachedItems.find(i=>i.id===id); document.getElementById('editor-modal').classList.remove('hidden'); document.getElementById('editor-text-input').value = type==='photo'?currentEditingItem.caption:currentEditingItem.text; };
-        window.closeEditorModal = () => document.getElementById('editor-modal').classList.add('hidden');
-        window.updateLogEntry = async () => { const txt = document.getElementById('editor-text-input').value; await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), currentEditingItem.type==='photo'?{caption:txt}:{text:txt}, {merge:true}); window.closeEditorModal(); };
-        window.deleteEntry = async (id, path) => { if(confirm("Delete?")) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/images`, id)); if(path) deleteObject(ref(storage, path)); } };
-        window.switchTab = (id) => { 
-            document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active')); document.getElementById(`tab-${id}`).classList.add('active'); 
-            document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active','text-blue-600')); document.getElementById(`nav-${id}`).classList.add('active','text-blue-600');
-            if(id==='map') setTimeout(initMap, 200);
-            if(id==='files') loadBrowser(browserPath);
-        }
-        window.updateProjectID = (v) => { currentProject=v; document.getElementById('project-header').innerText=`Project: ${v}`; loadReport(); };
-        window.toggleNewProjectInput = () => document.getElementById('new-project-div').classList.toggle('hidden');
-        window.createNewProject = () => { const v=document.getElementById('new-project-input').value; if(v){ addProjectToSet(v); window.switchProject(v); } };
-        window.switchProject = (v) => { currentProject=v; localStorage.setItem('fc_active_project',v); updateProjectHeader(); loadReport(); };
-        function addProjectToSet(p){ knownProjects.add(p); localStorage.setItem('fc_projects', JSON.stringify(Array.from(knownProjects))); renderProjectOptions(); }
-        function renderProjectOptions() { const s=document.getElementById('project-select'); s.innerHTML=''; Array.from(knownProjects).sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.text=p;if(p===currentProject)o.selected=true;s.appendChild(o)}); }
-        function updateProjectHeader() { document.getElementById('project-header').innerText=`Project: ${currentProject}`; }
-        function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
-        function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        window.copyStorageRules = () => navigator.clipboard.writeText(document.getElementById('st-rules').innerText);
-        window.importLegacyFiles = async () => { /* Simplified */ };
-        window.browserUp = () => { const p=browserPath.split('/'); if(p.length>1){p.pop();loadBrowser(p.join('/'));} };
-        window.refreshBrowser = () => loadBrowser(browserPath);
-        window.setSortOrder = (o) => { currentSort=o; renderReport(cachedItems); };
-
-        // Duplicate functions to ensure global scope access for UI buttons
-        window.handleCameraInput = handleCameraInput;
-        window.openBatchCaptionModal = openBatchCaptionModal;
-        window.confirmUpload = confirmUpload;
-        window.confirmQuickNote = confirmQuickNote;
-        window.downloadAllPhotosZip = downloadAllPhotosZip;
-        window.downloadNotesTextReport = downloadNotesTextReport;
-
-        // Missing Core Functions needed for UI buttons
-        async function handleCameraInput(e) { /* ... implementation from previous steps ... */ 
-            const file = e.target.files[0]; if(!file) return; pendingBlob=file;
-            const url = URL.createObjectURL(file);
-            document.getElementById('modal-img-preview').src=url;
-            document.getElementById('modal-caption-input').value="";
-            document.getElementById('caption-modal').classList.remove('hidden');
-            blobToBase64(file).then(b=>{pendingBase64=b});
-        }
-        function openBatchCaptionModal() { /* ... implementation ... */ }
-        
-        async function confirmUpload() { /* ... implementation ... */ 
-             if(!user) return; setLoading(true);
-             try {
-                 const id = Date.now().toString();
-                 const path = `artifacts/${appId}/public/data/files/${currentProject}/${id}.jpg`;
-                 const snap = await uploadBytes(ref(storage, path), pendingBlob);
-                 const url = await getDownloadURL(snap.ref);
-                 const caption = document.getElementById('modal-caption-input').value;
-                 await setDoc(doc(db, `artifacts/${appId}/public/data/images`, id), {
-                     id, type:'photo', projectId:currentProject, url, storagePath:path, caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat, lng:currentLocation?.lng
-                 });
-                 document.getElementById('caption-modal').classList.add('hidden');
-                 loadReport();
-             } catch(e) { console.error(e); } finally { setLoading(false); }
-        }
-
-        async function confirmQuickNote() { /* ... implementation ... */ 
-             const txt = document.getElementById('quick-note-input').value; if(!txt) return;
-             await setDoc(doc(db, `artifacts/${appId}/public/data/images`, Date.now().toString()), {
-                 id: Date.now().toString(), type:'note', projectId:currentProject, text:txt, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat, lng:currentLocation?.lng
-             });
-             document.getElementById('quick-note-input').value="";
-             loadReport();
-        }
-        
-        async function downloadAllPhotosZip() { /* ... */ }
-        function downloadNotesTextReport() { /* ... */ }
 
         init();
     </script>
