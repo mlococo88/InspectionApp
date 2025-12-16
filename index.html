@@ -17,10 +17,18 @@
         .nav-item.active { color: #2563eb; }
         .report-nav-item.active { border-color: #2563eb; color: #2563eb; background-color: #ebf5ff; }
         #map-container { height: 70vh; width: 100%; border-radius: 0.5rem; z-index: 1; }
+        
+        /* Series Mode Active State */
         #series-mode-btn.active {
             background-color: #f59e0b;
-            color: #1f2937;
-            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.5);
+            color: #ffffff;
+            border-color: #d97706;
+            animation: pulse-orange 2s infinite;
+        }
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
         }
     </style>
 </head>
@@ -64,7 +72,8 @@
                 </label>
                 <p class="text-sm text-gray-500 font-medium" id="photo-capture-label">Tap to Capture Photo</p>
                 
-                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-4 py-1.5 rounded-full text-sm font-bold shadow transition border border-gray-300">
+                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-sm font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <span id="series-icon">🔄</span>
                     <span id="series-mode-text">Enable Photo Series</span>
                 </button>
             </div>
@@ -95,15 +104,17 @@
 
     </div>
 
-    <!-- TAB 2: REPORT LOG -->
+    <!-- TAB 2: REPORT LOG (FIRESTORE) -->
     <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-800">Inspection Log</h2>
+            <!-- NEW REPORT BUTTON -->
             <button onclick="window.generateReportPDF()" class="text-sm bg-red-600 text-white font-semibold hover:bg-red-700 px-3 py-1.5 rounded-lg shadow transition">
                 Generate Report PDF
             </button>
         </div>
         
+        <!-- Filter/Search/Sort -->
         <div class="mb-4 space-y-2">
             <div class="flex gap-2">
                 <input type="text" id="report-search" placeholder="Search logs..." class="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -114,15 +125,21 @@
             </div>
         </div>
 
+        <!-- Report Sub-Navigation -->
         <div class="flex border-b border-gray-300 mb-4">
             <button id="nav-log-photos" class="report-nav-item active px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('photo')">Photo Log</button>
             <button id="nav-log-notes" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('note')">Notes Log</button>
             <button id="nav-log-all" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('all')">All Entries</button>
         </div>
 
+        <!-- Photo Log Controls -->
         <div id="photo-log-controls" class="mb-4 flex justify-end gap-2">
-            <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">Download Photos (ZIP)</button>
-             <button id="download-notes-btn" onclick="window.downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">Download Notes (TXT)</button>
+            <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                Download Photos (ZIP)
+            </button>
+             <button id="download-notes-btn" onclick="window.downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                Download Notes (TXT)
+            </button>
         </div>
         
         <div id="report-feed" class="space-y-4">
@@ -176,7 +193,46 @@
         </button>
     </nav>
 
-    <!-- MODALS -->
+    <!-- NEW: IMAGE DETAIL MODAL -->
+    <div id="image-detail-modal" class="fixed inset-0 z-[60] bg-black/95 hidden flex flex-col justify-center p-4">
+        <div class="relative w-full max-w-4xl mx-auto flex flex-col h-full max-h-screen">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-2 text-white bg-black/50">
+                <h3 class="font-bold text-lg">Inspection Detail</h3>
+                <button onclick="window.closeImageDetail()" class="p-2 bg-gray-800 rounded-full hover:bg-gray-700 text-white w-8 h-8 flex items-center justify-center">✕</button>
+            </div>
+            
+            <!-- Image Area -->
+            <div class="flex-1 flex items-center justify-center bg-black overflow-hidden relative">
+                <img id="detail-img" class="max-w-full max-h-full object-contain">
+            </div>
+
+            <!-- Metadata Footer -->
+            <div class="bg-gray-900 text-gray-300 p-4 space-y-3 border-t border-gray-700">
+                <p id="detail-caption" class="text-white font-bold text-lg leading-tight"></p>
+                <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                    <div>
+                        <span class="block text-gray-500 uppercase">Date Logged</span>
+                        <span id="detail-date" class="text-blue-400"></span>
+                    </div>
+                    <div>
+                        <span class="block text-gray-500 uppercase">GPS Location</span>
+                        <a id="detail-gps-link" target="_blank" class="text-blue-400 hover:underline cursor-pointer"></a>
+                    </div>
+                    <div>
+                        <span class="block text-gray-500 uppercase">Project ID</span>
+                        <span id="detail-project"></span>
+                    </div>
+                    <div>
+                        <span class="block text-gray-500 uppercase">Record ID</span>
+                        <span id="detail-id" class="text-gray-500"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS (Existing) -->
     <div id="caption-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
         <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
             <div class="relative h-64 bg-gray-100 flex items-center justify-center">
@@ -260,12 +316,44 @@
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
 
-        // -- CORE FUNCTIONS MOVED TO TOP SCOPE --
-        
+        // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
+
+        // --- NEW: OPEN IMAGE DETAIL ---
+        window.openImageDetail = (id) => {
+            const item = cachedItems.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('detail-img').src = item.url;
+            document.getElementById('detail-caption').innerText = item.caption || "No Caption";
+            document.getElementById('detail-date').innerText = item.dateString || "Unknown";
+            
+            const gpsText = (item.lat && item.lng) ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}` : "No GPS Data";
+            const gpsLink = document.getElementById('detail-gps-link');
+            gpsLink.innerText = gpsText;
+            
+            if (item.lat && item.lng) {
+                gpsLink.href = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
+                gpsLink.classList.remove('pointer-events-none', 'text-gray-500');
+                gpsLink.classList.add('text-blue-400', 'hover:underline');
+            } else {
+                gpsLink.href = "#";
+                gpsLink.classList.add('pointer-events-none', 'text-gray-500');
+                gpsLink.classList.remove('text-blue-400', 'hover:underline');
+            }
+            
+            document.getElementById('detail-project').innerText = item.projectId || "";
+            document.getElementById('detail-id').innerText = item.id.substring(8); // Short ID
+
+            document.getElementById('image-detail-modal').classList.remove('hidden');
+        };
+
+        window.closeImageDetail = () => {
+            document.getElementById('image-detail-modal').classList.add('hidden');
+        };
 
         async function loadBrowser(path) {
             browserPath = path;
@@ -380,8 +468,30 @@
             filtered.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
-                let left = item.type === 'note' ? `<div class="w-16 bg-yellow-50 flex items-center justify-center text-2xl">📝</div>` : `<div class="w-1/3 bg-gray-100 relative"><img src="${item.url}" class="absolute inset-0 w-full h-full object-cover"></div>`;
-                div.innerHTML = `${left}<div class="p-3 flex-1 flex flex-col justify-between"><div><div class="text-xs text-gray-400 mb-1 flex justify-between"><span>${item.dateString}</span>${item.lat?'<span>📍</span>':''}</div><p class="text-sm font-medium">${item.caption || item.text}</p></div><div class="flex justify-end gap-2 mt-2"><button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold">Edit</button><button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold">Delete</button></div></div>`;
+                
+                // UPDATED VISUAL SIDE FOR PHOTO TO OPEN MODAL
+                let left = item.type === 'note' 
+                    ? `<div class="w-16 bg-yellow-50 flex-shrink-0 flex items-center justify-center text-2xl">📝</div>` 
+                    : `<div class="w-1/3 bg-gray-100 flex-shrink-0 relative cursor-pointer group" onclick="window.openImageDetail('${item.id}')">
+                        <img src="${item.url}" class="absolute inset-0 w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition"></div>
+                        <div class="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1 rounded">🔍</div>
+                       </div>`;
+
+                div.innerHTML = `${left}
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1 flex justify-between">
+                            <span>${item.dateString}</span>
+                            ${item.lat ? `<span class="text-blue-500">📍 ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}</span>` : ''}
+                        </div>
+                        <p class="text-sm font-medium">${item.caption || item.text}</p>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold">Edit</button>
+                        <button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold">Delete</button>
+                    </div>
+                </div>`;
                 feed.appendChild(div);
             });
         }
@@ -402,9 +512,65 @@
         }
 
         // --- GLOBAL EXPORTS (Before Init) ---
-        window.loadBrowser = loadBrowser; // Fix reference error
-        window.cancelUpload = () => { if(isSeriesMode && confirm("Discard queue?")) seriesPhotoQueue=[]; document.getElementById('caption-modal').classList.add('hidden'); };
-        window.toggleSeriesMode = () => { isSeriesMode=!isSeriesMode; document.getElementById('series-mode-btn').classList.toggle('active', isSeriesMode); if(!isSeriesMode && seriesPhotoQueue.length>0) openBatchCaptionModal(); };
+        window.loadBrowser = loadBrowser; 
+        window.cancelUpload = () => { 
+            if(isSeriesMode && confirm("Discard queue?")) seriesPhotoQueue=[]; 
+            document.getElementById('caption-modal').classList.add('hidden'); 
+        };
+        
+        window.toggleSeriesMode = () => {
+            isSeriesMode = !isSeriesMode;
+            const btn = document.getElementById('series-mode-btn');
+            const label = document.getElementById('photo-capture-label');
+
+            btn.classList.toggle('active', isSeriesMode);
+            btn.innerHTML = isSeriesMode ? '<span id="series-icon">⏺</span> Stop Recording' : '<span id="series-icon">🔄</span> Enable Photo Series';
+            label.innerText = isSeriesMode ? `Series Active: ${seriesPhotoQueue.length} photos` : 'Tap to Capture Photo';
+            
+            if (!isSeriesMode && seriesPhotoQueue.length > 0) {
+                openBatchCaptionModal();
+            } else if (!isSeriesMode && seriesPhotoQueue.length === 0) {
+                label.innerText = 'Tap to Capture Photo';
+            }
+        };
+
+        window.handleCameraInput = (e) => {
+            const file = e.target.files[0]; if(!file) return; pendingBlob=file;
+            e.target.value = ""; // Clear input immediately
+            
+            if (isSeriesMode) {
+                const id = Date.now().toString();
+                seriesPhotoQueue.push({ id, blob: pendingBlob, base64: null, timestamp: new Date() });
+                showToast(`Photo #${seriesPhotoQueue.length} Added`);
+                document.getElementById('photo-capture-label').innerText = `Series Active: ${seriesPhotoQueue.length} photos`;
+                
+                blobToBase64(file).then(b => { 
+                    const item = seriesPhotoQueue.find(x=>x.id === id);
+                    if(item) item.base64 = b; 
+                });
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            document.getElementById('modal-img-preview').src=url;
+            document.getElementById('modal-caption-input').value="";
+            document.getElementById('ai-caption-btn').classList.remove('hidden');
+            document.querySelector('#caption-modal h3').innerText = "Photo Caption";
+            document.getElementById('modal-save-btn').innerText = "Save & Upload";
+            document.getElementById('caption-modal').classList.remove('hidden');
+            blobToBase64(file).then(b=>{pendingBase64=b});
+        };
+
+        function openBatchCaptionModal() {
+             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
+             document.getElementById('modal-caption-input').value = "";
+             document.getElementById('ai-caption-btn').classList.add('hidden');
+             document.querySelector('#caption-modal label').innerText = `Batch Caption for ${seriesPhotoQueue.length} Photos`;
+             document.getElementById('modal-save-btn').innerText = `Upload ${seriesPhotoQueue.length} Photos`;
+             document.getElementById('caption-modal').classList.remove('hidden');
+        }
+        
+        window.openBatchCaptionModal = openBatchCaptionModal; // Expose
+
         window.openEditorModal = (id, type) => { currentEditingItem = cachedItems.find(i=>i.id===id); document.getElementById('editor-modal').classList.remove('hidden'); document.getElementById('editor-text-input').value = type==='photo'?currentEditingItem.caption:currentEditingItem.text; };
         window.closeEditorModal = () => document.getElementById('editor-modal').classList.add('hidden');
         window.updateLogEntry = async () => { const txt = document.getElementById('editor-text-input').value; await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), currentEditingItem.type==='photo'?{caption:txt}:{text:txt}, {merge:true}); window.closeEditorModal(); };
@@ -463,26 +629,6 @@
             let txt = `NOTES REPORT - ${currentProject}\n\n`;
             notes.forEach(n => { txt += `[${n.dateString}]\n${n.text}\n-----------------\n`; });
             saveAs(new Blob([txt],{type:'text/plain'}), `${currentProject}_Notes.txt`);
-        };
-
-        window.handleCameraInput = (e) => {
-            const file = e.target.files[0]; if(!file) return; pendingBlob=file;
-            if (isSeriesMode) {
-                const id = Date.now().toString();
-                seriesPhotoQueue.push({ id, blob: pendingBlob, base64: null, timestamp: new Date() });
-                showToast(`Photo #${seriesPhotoQueue.length} Added`);
-                document.getElementById('photo-capture-label').innerText = `Series Active: ${seriesPhotoQueue.length} photos`;
-                e.target.value = "";
-                blobToBase64(file).then(b => { seriesPhotoQueue[seriesPhotoQueue.length - 1].base64 = b; });
-                return;
-            }
-            const url = URL.createObjectURL(file);
-            document.getElementById('modal-img-preview').src=url;
-            document.getElementById('modal-caption-input').value="";
-            document.getElementById('ai-caption-btn').classList.remove('hidden');
-            document.getElementById('modal-save-btn').innerText = "Save & Upload";
-            document.getElementById('caption-modal').classList.remove('hidden');
-            blobToBase64(file).then(b=>{pendingBase64=b});
         };
 
         window.confirmUpload = async () => {
