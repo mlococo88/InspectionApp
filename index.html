@@ -127,15 +127,6 @@
             </div>
         </div>
 
-        <!-- Tips -->
-        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
-            <h3 class="text-sm font-bold text-blue-800 mb-2">Inspection Tips</h3>
-            <ul class="text-xs text-blue-700 list-disc list-inside space-y-1">
-                <li>Include reference scale in photos.</li>
-                <li>Notes are searchable in the report view.</li>
-            </ul>
-        </div>
-
     </div>
 
     <!-- TAB 2: REPORT LOG (FIRESTORE) -->
@@ -904,7 +895,7 @@
         window.browserUp = () => { const p=browserPath.split('/'); if(p.length>1){p.pop();loadBrowser(p.join('/'));} };
         window.refreshBrowser = () => loadBrowser(browserPath);
         window.copyStorageRules = () => navigator.clipboard.writeText(document.getElementById('st-rules').innerText);
-        
+        window.importLegacyFiles = async () => { if(confirm("Scan storage?")) { const scan=async(r,pn)=>{const l=await listAll(r);for(const f of l.items){const id=f.name.split('.')[0];const u=await getDownloadURL(f);await setDoc(doc(db,`artifacts/${appId}/public/data/images`,id),{id,projectId:pn||"Unsorted",url:u,storagePath:f.fullPath,caption:"Imported",timestamp:Date.now(),dateString:"Imported"},{merge:true});}for(const p of l.prefixes){addProjectToSet(p.name);await scan(p,p.name);}}; await scan(ref(storage,`artifacts/${appId}/public/data/files`),"Unsorted"); alert("Done"); } };
         
         window.setReportFilter = (filter) => {
             currentReportFilter = filter;
