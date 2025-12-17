@@ -268,9 +268,20 @@
             </div>
             <div class="p-6 space-y-4">
                 <div id="editor-photo-preview" class="hidden relative h-32 bg-gray-100 mb-3 flex items-center justify-center border border-gray-200 rounded"><img id="editor-preview-img" class="max-h-full max-w-full object-contain"></div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1" id="editor-label">Text</label>
-                <textarea id="editor-text-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 resize-none"></textarea>
-                <button onclick="window.updateLogEntry()" id="editor-save-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Changes</button>
+                
+                <!-- NEW: Split inputs for editing -->
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title / Location</label>
+                <input type="text" id="editor-title-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-2">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Detailed Description</label>
+                <textarea id="editor-desc-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 resize-none"></textarea>
+                
+                <div class="flex flex-col gap-2">
+                    <button onclick="window.regenerateOverlay()" id="editor-regen-btn" class="hidden w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg shadow text-xs flex items-center justify-center gap-2">
+                        <span>✨</span> Re-burn Overlay Text (Uses Original Photo)
+                    </button>
+                    <button onclick="window.updateLogEntry()" id="editor-save-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Changes</button>
+                </div>
             </div>
         </div>
     </div>
@@ -718,9 +729,52 @@
         
         window.openBatchCaptionModal = openBatchCaptionModal; // Expose
 
-        window.openEditorModal = (id, type) => { currentEditingItem = cachedItems.find(i=>i.id===id); document.getElementById('editor-modal').classList.remove('hidden'); document.getElementById('editor-text-input').value = type==='photo'?currentEditingItem.caption:currentEditingItem.text; };
+        window.openEditorModal = (id, type) => { 
+            currentEditingItem = cachedItems.find(i=>i.id===id); 
+            document.getElementById('editor-modal').classList.remove('hidden'); 
+            
+            if(type === 'photo') {
+                document.getElementById('editor-photo-preview').classList.remove('hidden');
+                document.getElementById('editor-preview-img').src = currentEditingItem.url;
+                
+                // Populate split fields
+                document.getElementById('editor-title-input').value = currentEditingItem.title || "";
+                document.getElementById('editor-desc-input').value = currentEditingItem.detailedDesc || currentEditingItem.caption;
+                
+                // Show/Hide Regen button
+                const regenBtn = document.getElementById('editor-regen-btn');
+                if(currentEditingItem.rawStoragePath) {
+                    regenBtn.classList.remove('hidden');
+                } else {
+                    regenBtn.classList.add('hidden');
+                }
+            } else {
+                document.getElementById('editor-photo-preview').classList.add('hidden');
+                document.getElementById('editor-title-input').value = "";
+                document.getElementById('editor-desc-input').value = currentEditingItem.text;
+                document.getElementById('editor-regen-btn').classList.add('hidden');
+            }
+        };
+        
         window.closeEditorModal = () => document.getElementById('editor-modal').classList.add('hidden');
-        window.updateLogEntry = async () => { const txt = document.getElementById('editor-text-input').value; await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), currentEditingItem.type==='photo'?{caption:txt}:{text:txt}, {merge:true}); window.closeEditorModal(); };
+        
+        window.updateLogEntry = async () => { 
+            const newTitle = document.getElementById('editor-title-input').value.trim();
+            const newDesc = document.getElementById('editor-desc-input').value.trim();
+            
+            let updateData = {};
+            if(currentEditingItem.type === 'photo') {
+                let newCaption = newDesc;
+                if(newTitle) newCaption = `${newTitle} - ${newDesc}`;
+                updateData = { caption: newCaption, title: newTitle, detailedDesc: newDesc };
+            } else {
+                updateData = { text: newDesc };
+            }
+            
+            await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), updateData, {merge:true}); 
+            window.closeEditorModal(); 
+        };
+        
         window.deleteEntry = async (id, path) => { if(confirm("Delete?")) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/images`, id)); if(path) deleteObject(ref(storage, path)); } };
         window.switchTab = (id) => { 
             document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active')); document.getElementById(`tab-${id}`).classList.add('active'); 
@@ -778,6 +832,61 @@
             saveAs(new Blob([txt],{type:'text/plain'}), `${currentProject}_Notes.txt`);
         };
 
+        window.regenerateOverlay = async () => {
+            if(!currentEditingItem || !currentEditingItem.rawStoragePath) return;
+            if(!confirm("This will permanently overwrite the photo text with your new edits. Continue?")) return;
+            
+            setLoading(true, "Regenerating Overlay...");
+            try {
+                // 1. Get raw image URL
+                const rawUrl = await getDownloadURL(ref(storage, currentEditingItem.rawStoragePath));
+                const rawResp = await fetch(rawUrl);
+                const rawBlob = await rawResp.blob();
+                
+                // 2. Get new text
+                const newTitle = document.getElementById('editor-title-input').value.trim();
+                const newDesc = document.getElementById('editor-desc-input').value.trim();
+                let newCaption = newDesc;
+                if(newTitle) newCaption = `${newTitle} - ${newDesc}`;
+                
+                // 3. Process
+                const meta = {
+                    projectId: currentEditingItem.projectId,
+                    id: currentEditingItem.id,
+                    timestamp: currentEditingItem.timestamp,
+                    lat: currentEditingItem.lat,
+                    lng: currentEditingItem.lng,
+                    weather: currentEditingItem.weather,
+                    caption: newCaption,
+                    seriesIndex: currentEditingItem.seriesIndex,
+                    photoNumber: String(currentEditingItem.photoNumber || "").padStart(3, '0')
+                };
+                const newImageBlob = await processImageWithOverlay(rawBlob, meta);
+                
+                // 4. Upload (Overwrite existing)
+                const processedRef = ref(storage, currentEditingItem.storagePath);
+                await uploadBytes(processedRef, newImageBlob);
+                
+                // 5. Update Firestore
+                await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), {
+                    caption: newCaption,
+                    title: newTitle,
+                    detailedDesc: newDesc
+                }, {merge: true});
+                
+                // 6. Refresh UI
+                const newUrl = await getDownloadURL(processedRef);
+                document.getElementById('editor-preview-img').src = newUrl; // Refresh preview
+                
+                showToast("Overlay Updated!");
+            } catch(e) {
+                console.error(e);
+                alert("Regeneration Failed: " + e.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         window.confirmUpload = async () => {
              if(!user) return alert("Error: No user found.");
              let itemsToProcess = [];
@@ -816,8 +925,12 @@
                      let finalBlob = item.blob;
                      const thisNum = maxNum + index + 1;
                      const photoIdStr = String(thisNum).padStart(3, '0');
+                     
+                     // 1. Upload RAW
+                     const rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
+                     await uploadBytes(ref(storage, rawPath), item.blob);
 
-                     // Burn text if toggle is on
+                     // 2. Burn text if toggle is on
                      if (doBurn) {
                         const meta = {
                             projectId: currentProject,
@@ -838,7 +951,7 @@
                      const url = await getDownloadURL(snap.ref);
                      
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum
+                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum, rawStoragePath: rawPath
                      });
                  });
                  await Promise.all(uploads);
@@ -860,7 +973,7 @@
              if (title) txt = `${title} - ${desc}`;
 
              await setDoc(doc(db, `artifacts/${appId}/public/data/images`, Date.now().toString()), {
-                 id: Date.now().toString(), type:'note', projectId:currentProject, text:txt, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
+                 id: Date.now().toString(), type:'note', projectId:currentProject, text:txt, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
              });
              document.getElementById('quick-note-title').value="";
              document.getElementById('quick-note-desc').value="";
