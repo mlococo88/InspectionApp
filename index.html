@@ -332,7 +332,7 @@
         // --- WEATHER FETCHING ---
         async function fetchWeather(lat, lng) {
             try {
-                const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=fahrenheit`);
                 const data = await r.json();
                 if(data.current_weather) {
                     const code = data.current_weather.weathercode;
@@ -344,7 +344,7 @@
                     else if(code < 80) desc = "Rain";
                     else desc = "Storm/Snow";
                     
-                    currentWeather = { temp: `${data.current_weather.temperature}°C`, desc: desc };
+                    currentWeather = { temp: `${data.current_weather.temperature}°F`, desc: desc };
                 }
             } catch(e) { console.warn("Weather fetch failed", e); }
         }
@@ -366,54 +366,88 @@
                     // Draw original
                     ctx.drawImage(img, 0, 0);
 
-                    // Settings for overlay
-                    const barHeight = h * 0.12; // 12% of height for metadata
-                    const fontSize = Math.floor(h * 0.025); // Dynamic font size
-                    const padding = fontSize;
+                    // Dynamic Styling
+                    const fontSize = Math.floor(h * 0.03); // 3% of height
+                    const padding = Math.floor(fontSize * 0.5);
+                    const lineHeight = Math.floor(fontSize * 1.4);
 
-                    // Draw semi-transparent black bar at bottom
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; // Increased opacity
-                    ctx.fillRect(0, h - barHeight, w, barHeight);
-
-                    // Text Settings
-                    ctx.fillStyle = "#ffffff";
                     ctx.font = `bold ${fontSize}px sans-serif`;
                     ctx.textBaseline = "top";
                     
-                    // Shadow for better legibility
-                    ctx.shadowColor = "black";
-                    ctx.shadowBlur = 4;
-                    ctx.shadowOffsetX = 2;
-                    ctx.shadowOffsetY = 2;
+                    // --- TOP LEFT: Project ---
+                    const projText = `PROJECT: ${meta.projectId}`;
+                    const projMetrics = ctx.measureText(projText);
+                    const projBgW = projMetrics.width + (padding * 2);
+                    const projBgH = lineHeight + padding;
+                    
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                    ctx.fillRect(0, 0, projBgW, projBgH);
+                    
+                    ctx.fillStyle = "#ffffff";
+                    ctx.textAlign = "left";
+                    ctx.fillText(projText, padding, padding/2);
 
-                    // Layout Text
-                    // Line 1: Project | Photo ID | Date/Time
-                    const line1Y = h - barHeight + (padding * 0.8);
-                    const line2Y = line1Y + (fontSize * 1.5);
-                    const line3Y = line2Y + (fontSize * 1.5);
+                    // --- TOP RIGHT: Photo # ---
+                    const photoText = `PHOTO: ${meta.photoNumber || meta.id.substring(8)}`;
+                    const photoMetrics = ctx.measureText(photoText);
+                    const photoBgW = photoMetrics.width + (padding * 2);
+                    
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                    ctx.fillRect(w - photoBgW, 0, photoBgW, projBgH);
+                    
+                    ctx.fillStyle = "#ffffff";
+                    ctx.textAlign = "right";
+                    ctx.fillText(photoText, w - padding, padding/2);
 
+                    // --- BOTTOM: Metadata Stack ---
+                    // Prepare lines
                     const dateStr = new Date(meta.timestamp).toLocaleString();
-                    const gpsStr = meta.lat ? `${meta.lat.toFixed(5)}, ${meta.lng.toFixed(5)}` : "No GPS";
-                    const wxStr = meta.weather ? `${meta.weather.desc}, ${meta.weather.temp}` : "";
+                    const gpsStr = meta.lat ? `${meta.lat.toFixed(6)}, ${meta.lng.toFixed(6)}` : "No GPS Data";
+                    const wxStr = meta.weather ? `${meta.weather.desc} (${meta.weather.temp})` : "Weather: N/A";
+                    const capStr = meta.caption || "No Caption";
 
-                    ctx.fillText(`PROJ: ${meta.projectId}  |  PHOTO: ${meta.id.substring(8)}  |  ${dateStr}`, padding, line1Y);
+                    const lines = [
+                        `DATE: ${dateStr}`,
+                        `LOC: ${gpsStr}`,
+                        `WX: ${wxStr}`,
+                        `NOTE: ${capStr}`
+                    ];
+
+                    const bottomHeight = (lines.length * lineHeight) + (padding * 2);
                     
-                    // Line 2: GPS | Weather
-                    ctx.fillText(`LOC: ${gpsStr}  |  WX: ${wxStr}`, padding, line2Y);
+                    // Bottom Background
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillRect(0, h - bottomHeight, w, bottomHeight);
 
-                    // Line 3: Caption (Truncated if too long)
-                    let caption = meta.caption || "No caption";
-                    if (caption.length > 80) caption = caption.substring(0, 77) + "...";
+                    // Draw Lines
+                    ctx.textAlign = "left";
+                    ctx.fillStyle = "#ffffff";
                     
-                    ctx.fillStyle = "#fbbf24"; // Amber color for caption to stand out
-                    ctx.fillText(`NOTE: ${caption}`, padding, line3Y);
+                    let currentY = h - bottomHeight + padding;
+                    
+                    lines.forEach((line, index) => {
+                        // Highlight Caption in Amber
+                        if(index === 3) ctx.fillStyle = "#fbbf24"; 
+                        else ctx.fillStyle = "#ffffff";
+                        
+                        ctx.fillText(line, padding, currentY);
+                        currentY += lineHeight;
+                    });
 
-                    // Optional: Numbering (for series)
+                    // Series Index (if exists, put it under Photo ID top right)
                     if(meta.seriesIndex) {
-                        ctx.fillStyle = "#ffffff";
-                        ctx.textAlign = "right";
-                        ctx.fillText(`${meta.seriesIndex}`, w - padding, line1Y);
-                        ctx.textAlign = "left"; // Reset
+                         ctx.font = `bold ${Math.floor(fontSize*0.7)}px sans-serif`;
+                         const seriesText = meta.seriesIndex;
+                         const seriesY = projBgH + (padding/2);
+                         
+                         // Small bg for series
+                         const sMetrics = ctx.measureText(seriesText);
+                         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                         ctx.fillRect(w - sMetrics.width - (padding*2), projBgH, sMetrics.width + (padding*2), lineHeight);
+
+                         ctx.fillStyle = "#fbbf24";
+                         ctx.textAlign = "right";
+                         ctx.fillText(seriesText, w - padding, seriesY + (padding/4));
                     }
 
                     canvas.toBlob((b) => {
@@ -760,9 +794,16 @@
              setLoading(true, `Processing & Uploading ${itemsToProcess.length} files...`);
              const doBurn = document.getElementById('burn-text-toggle').checked;
              
+             // Calculate max photo number
+             const existingPhotos = cachedItems.filter(i => i.type === 'photo');
+             const maxNum = existingPhotos.reduce((max, item) => Math.max(max, item.photoNumber || 0), 0);
+
              try {
-                 const uploads = itemsToProcess.map(async (item) => {
+                 const uploads = itemsToProcess.map(async (item, index) => {
                      let finalBlob = item.blob;
+                     const thisNum = maxNum + index + 1;
+                     const photoIdStr = String(thisNum).padStart(3, '0');
+
                      // Burn text if toggle is on
                      if (doBurn) {
                         const meta = {
@@ -773,7 +814,8 @@
                             lng: currentLocation?.lng,
                             weather: currentWeather,
                             caption: item.caption,
-                            seriesIndex: item.seriesIndex
+                            seriesIndex: item.seriesIndex,
+                            photoNumber: photoIdStr
                         };
                         finalBlob = await processImageWithOverlay(item.blob, meta);
                      }
@@ -783,7 +825,7 @@
                      const url = await getDownloadURL(snap.ref);
                      
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
+                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum
                      });
                  });
                  await Promise.all(uploads);
