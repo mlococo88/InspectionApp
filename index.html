@@ -660,7 +660,8 @@
             document.getElementById('modal-img-preview').src=url;
             document.getElementById('modal-caption-input').value="";
             document.getElementById('ai-caption-btn').classList.remove('hidden');
-            document.querySelector('#caption-modal h3').innerText = "Photo Caption";
+            // FIX: Use 'label' instead of 'h3' to match HTML structure
+            document.querySelector('#caption-modal label').innerText = "Photo Caption";
             document.getElementById('modal-save-btn').innerText = "Save & Upload";
             document.getElementById('caption-modal').classList.remove('hidden');
             blobToBase64(file).then(b=>{pendingBase64=b});
