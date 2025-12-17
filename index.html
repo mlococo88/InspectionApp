@@ -77,6 +77,12 @@
                     <span id="series-mode-text">Enable Photo Series</span>
                 </button>
             </div>
+            <div class="px-4 pb-4">
+                <div class="flex items-center gap-2 text-xs text-gray-500 justify-center">
+                   <input type="checkbox" id="burn-text-toggle" checked class="rounded text-blue-600 focus:ring-blue-500">
+                   <label for="burn-text-toggle">Overlay Data on Photo</label>
+                </div>
+            </div>
         </div>
 
         <!-- New Persistent Note Input -->
@@ -315,12 +321,103 @@
         let currentEditingItem = null, currentReportFilter = 'photo', currentSort = 'newest';
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
+        let currentWeather = { temp: "", desc: "" };
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
+
+        // --- WEATHER FETCHING ---
+        async function fetchWeather(lat, lng) {
+            try {
+                const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                const data = await r.json();
+                if(data.current_weather) {
+                    const code = data.current_weather.weathercode;
+                    // Simple code mapping
+                    let desc = "Unknown";
+                    if(code === 0) desc = "Clear Sky";
+                    else if(code < 4) desc = "Partly Cloudy";
+                    else if(code < 50) desc = "Foggy";
+                    else if(code < 80) desc = "Rain";
+                    else desc = "Storm/Snow";
+                    
+                    currentWeather = { temp: `${data.current_weather.temperature}°C`, desc: desc };
+                }
+            } catch(e) { console.warn("Weather fetch failed", e); }
+        }
+
+        // --- IMAGE PROCESSING (BURN TEXT) ---
+        function processImageWithOverlay(blob, meta) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(blob);
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    // Keep original dimensions
+                    const w = img.naturalWidth;
+                    const h = img.naturalHeight;
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+
+                    // Draw original
+                    ctx.drawImage(img, 0, 0);
+
+                    // Settings for overlay
+                    const barHeight = h * 0.12; // 12% of height for metadata
+                    const fontSize = Math.floor(h * 0.025); // Dynamic font size
+                    const padding = fontSize;
+
+                    // Draw semi-transparent black bar at bottom
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillRect(0, h - barHeight, w, barHeight);
+
+                    // Text Settings
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = `bold ${fontSize}px sans-serif`;
+                    ctx.textBaseline = "top";
+
+                    // Layout Text
+                    // Line 1: Project | Photo ID | Date/Time
+                    const line1Y = h - barHeight + (padding * 0.8);
+                    const line2Y = line1Y + (fontSize * 1.5);
+                    const line3Y = line2Y + (fontSize * 1.5);
+
+                    const dateStr = new Date(meta.timestamp).toLocaleString();
+                    const gpsStr = meta.lat ? `${meta.lat.toFixed(5)}, ${meta.lng.toFixed(5)}` : "No GPS";
+                    const wxStr = meta.weather ? `${meta.weather.desc}, ${meta.weather.temp}` : "";
+
+                    ctx.fillText(`PROJ: ${meta.projectId}  |  PHOTO: ${meta.id.substring(8)}  |  ${dateStr}`, padding, line1Y);
+                    
+                    // Line 2: GPS | Weather
+                    ctx.fillText(`LOC: ${gpsStr}  |  WX: ${wxStr}`, padding, line2Y);
+
+                    // Line 3: Caption (Truncated if too long)
+                    let caption = meta.caption || "No caption";
+                    if (caption.length > 80) caption = caption.substring(0, 77) + "...";
+                    
+                    ctx.fillStyle = "#fbbf24"; // Amber color for caption to stand out
+                    ctx.fillText(`NOTE: ${caption}`, padding, line3Y);
+
+                    // Optional: Numbering (for series)
+                    if(meta.seriesIndex) {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.textAlign = "right";
+                        ctx.fillText(`${meta.seriesIndex}`, w - padding, line1Y);
+                        ctx.textAlign = "left"; // Reset
+                    }
+
+                    canvas.toBlob((b) => {
+                        resolve(b);
+                        URL.revokeObjectURL(url);
+                    }, 'image/jpeg', 0.85);
+                };
+                img.src = url;
+            });
+        }
 
         // --- NEW: OPEN IMAGE DETAIL ---
         window.openImageDetail = (id) => {
@@ -502,6 +599,9 @@
                 cachedItems = []; s.forEach(d=>cachedItems.push(d.data())); 
                 renderReport(cachedItems); 
                 if(document.getElementById('tab-map').style.display === 'block') initMap();
+            }, (error) => {
+                console.error("Error fetching documents: ", error);
+                showToast("Error fetching data");
             });
         }
 
@@ -636,20 +736,45 @@
              let itemsToProcess = [];
              let caption = document.getElementById('modal-caption-input').value.trim() || "No Caption";
              if (seriesPhotoQueue.length > 0) {
-                 itemsToProcess = seriesPhotoQueue.map(p => ({ blob: p.blob, id: p.id, caption: caption }));
+                 itemsToProcess = seriesPhotoQueue.map((p, index) => ({ 
+                    blob: p.blob, 
+                    id: p.id, 
+                    caption: caption,
+                    timestamp: p.timestamp,
+                    seriesIndex: `Photo ${index + 1} of ${seriesPhotoQueue.length}`
+                 }));
                  seriesPhotoQueue = [];
                  document.getElementById('photo-capture-label').innerText = "Tap to Capture Photo";
              } else if (pendingBlob) {
-                 itemsToProcess.push({ blob: pendingBlob, id: Date.now().toString(), caption: caption });
+                 itemsToProcess.push({ blob: pendingBlob, id: Date.now().toString(), caption: caption, timestamp: new Date(), seriesIndex: null });
                  pendingBlob = null;
              } else { return alert("No photo ready."); }
              
-             setLoading(true, `Uploading ${itemsToProcess.length} files...`);
+             setLoading(true, `Processing & Uploading ${itemsToProcess.length} files...`);
+             const doBurn = document.getElementById('burn-text-toggle').checked;
+             
              try {
                  const uploads = itemsToProcess.map(async (item) => {
+                     let finalBlob = item.blob;
+                     // Burn text if toggle is on
+                     if (doBurn) {
+                        const meta = {
+                            projectId: currentProject,
+                            id: item.id,
+                            timestamp: item.timestamp,
+                            lat: currentLocation?.lat,
+                            lng: currentLocation?.lng,
+                            weather: currentWeather,
+                            caption: item.caption,
+                            seriesIndex: item.seriesIndex
+                        };
+                        finalBlob = await processImageWithOverlay(item.blob, meta);
+                     }
+
                      const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
-                     const snap = await uploadBytes(ref(storage, path), item.blob);
+                     const snap = await uploadBytes(ref(storage, path), finalBlob);
                      const url = await getDownloadURL(snap.ref);
+                     
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
                          id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
                      });
@@ -676,9 +801,9 @@
         window.generateAICaption = async () => {
             if (!pendingBase64) return alert("Photo still loading.");
             const btn = document.getElementById('ai-caption-btn'); btn.disabled=true; btn.innerText="Analyzing...";
-            const key = ""; 
+            const apiKey = "";
             try {
-                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method:'POST', headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({contents:[{parts:[{text:"Analyze structural defect, return short caption max 15 words."},{inlineData:{mimeType:"image/jpeg",data:pendingBase64}}]}]})
                 });
@@ -712,7 +837,15 @@
 
             document.getElementById('camera-input').onchange = handleCameraInput;
             document.getElementById('report-search').oninput = (e) => filterReport(e.target.value);
-            if (navigator.geolocation) navigator.geolocation.watchPosition(p => currentLocation = { lat: p.coords.latitude, lng: p.coords.longitude });
+            
+            // Watch GPS & Weather
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(p => {
+                    currentLocation = { lat: p.coords.latitude, lng: p.coords.longitude };
+                    // Update weather occasionally if not set
+                    if(!currentWeather.temp) fetchWeather(p.coords.latitude, p.coords.longitude);
+                });
+            }
 
             updateProjectHeader(); renderProjectOptions();
             setTimeout(() => window.setReportFilter(currentReportFilter), 100);
