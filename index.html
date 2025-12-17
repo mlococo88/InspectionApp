@@ -381,8 +381,8 @@
                     // Draw original
                     ctx.drawImage(img, 0, 0);
 
-                    // Dynamic Styling
-                    const fontSize = Math.floor(h * 0.03); // 3% of height
+                    // Dynamic Styling - Reduced font size
+                    const fontSize = Math.floor(h * 0.022); // Reduced from 0.03 to 0.022
                     const padding = Math.floor(fontSize * 0.5);
                     const lineHeight = Math.floor(fontSize * 1.4);
 
@@ -421,14 +421,41 @@
                     const wxStr = meta.weather ? `${meta.weather.desc} (${meta.weather.temp})` : "Weather: N/A";
                     const capStr = meta.caption || "No Caption";
 
-                    const lines = [
+                    // Helper for text wrapping
+                    const getLines = (ctx, text, maxWidth) => {
+                        const words = text.split(" ");
+                        const lines = [];
+                        let currentLine = words[0];
+
+                        for (let i = 1; i < words.length; i++) {
+                            const word = words[i];
+                            const width = ctx.measureText(currentLine + " " + word).width;
+                            if (width < maxWidth) {
+                                currentLine += " " + word;
+                            } else {
+                                lines.push(currentLine);
+                                currentLine = word;
+                            }
+                        }
+                        lines.push(currentLine);
+                        return lines;
+                    };
+
+                    // Calculate max width for text (width - 2*padding)
+                    const maxTextWidth = w - (padding * 2);
+
+                    // Wrap the caption
+                    const notePrefix = "NOTE: ";
+                    const wrappedNoteLines = getLines(ctx, notePrefix + capStr, maxTextWidth);
+
+                    const fixedLines = [
                         `DATE: ${dateStr}`,
                         `LOC: ${gpsStr}`,
-                        `WX: ${wxStr}`,
-                        `NOTE: ${capStr}`
+                        `WX: ${wxStr}`
                     ];
 
-                    const bottomHeight = (lines.length * lineHeight) + (padding * 2);
+                    const totalLineCount = fixedLines.length + wrappedNoteLines.length;
+                    const bottomHeight = (totalLineCount * lineHeight) + (padding * 2);
                     
                     // Bottom Background
                     ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -440,11 +467,15 @@
                     
                     let currentY = h - bottomHeight + padding;
                     
-                    lines.forEach((line, index) => {
-                        // Highlight Caption in Amber
-                        if(index === 3) ctx.fillStyle = "#fbbf24"; 
-                        else ctx.fillStyle = "#ffffff";
-                        
+                    // Draw Fixed Lines
+                    fixedLines.forEach(line => {
+                        ctx.fillText(line, padding, currentY);
+                        currentY += lineHeight;
+                    });
+
+                    // Draw Wrapped Note Lines
+                    ctx.fillStyle = "#fbbf24"; // Amber
+                    wrappedNoteLines.forEach(line => {
                         ctx.fillText(line, padding, currentY);
                         currentY += lineHeight;
                     });
@@ -867,16 +898,17 @@
                 const processedRef = ref(storage, currentEditingItem.storagePath);
                 await uploadBytes(processedRef, newImageBlob);
                 
-                // 5. Update Firestore
+                // 5. Get fresh URL & Update Firestore
+                const newUrl = await getDownloadURL(processedRef);
                 await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), {
                     caption: newCaption,
                     title: newTitle,
-                    detailedDesc: newDesc
+                    detailedDesc: newDesc,
+                    url: newUrl
                 }, {merge: true});
                 
-                // 6. Refresh UI
-                const newUrl = await getDownloadURL(processedRef);
-                document.getElementById('editor-preview-img').src = newUrl; // Refresh preview
+                // 6. Refresh UI with cache busting
+                document.getElementById('editor-preview-img').src = newUrl + '?t=' + Date.now(); 
                 
                 showToast("Overlay Updated!");
             } catch(e) {
