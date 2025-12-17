@@ -54,6 +54,24 @@
     <!-- TAB 1: INSPECT (CAMERA & NOTES) -->
     <div id="tab-inspect" class="tab-content active p-4 max-w-lg mx-auto space-y-6">
         
+        <!-- LIVE SENSORS DASHBOARD -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
+                    GPS Location
+                </span>
+                <div id="gps-status" class="text-xs font-mono text-orange-500 font-bold truncate w-full">Acquiring...</div>
+            </div>
+            <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+                    Weather
+                </span>
+                <div id="weather-status" class="text-xs font-medium text-gray-400 truncate w-full">Waiting for GPS...</div>
+            </div>
+        </div>
+
         <!-- Camera Button -->
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
@@ -360,6 +378,14 @@
                     else desc = "Storm/Snow";
                     
                     currentWeather = { temp: `${data.current_weather.temperature}°F`, desc: desc };
+                    
+                    // Update UI
+                    const wxEl = document.getElementById('weather-status');
+                    if(wxEl) {
+                        wxEl.innerText = `${desc}, ${data.current_weather.temperature}°F`;
+                        wxEl.classList.remove('text-gray-400');
+                        wxEl.classList.add('text-blue-600');
+                    }
                 }
             } catch(e) { console.warn("Weather fetch failed", e); }
         }
