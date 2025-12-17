@@ -865,6 +865,18 @@
         function renderProjectOptions() { const s=document.getElementById('project-select'); s.innerHTML=''; Array.from(knownProjects).sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.text=p;if(p===currentProject)o.selected=true;s.appendChild(o)}); }
         function updateProjectHeader() { document.getElementById('project-header').innerText=`Project: ${currentProject}`; }
 
+        async function syncProjectList() {
+            try {
+                const rootRef = ref(storage, `artifacts/${appId}/public/data/files`);
+                const res = await listAll(rootRef);
+                res.prefixes.forEach((folderRef) => {
+                    addProjectToSet(folderRef.name);
+                });
+            } catch (e) {
+                console.warn("Project sync failed", e);
+            }
+        }
+
         // --- INIT ---
         async function init() {
             const app = initializeApp(config);
@@ -897,6 +909,7 @@
             }
 
             updateProjectHeader(); renderProjectOptions();
+            syncProjectList(); // SYNC PROJECTS ON LOAD
             setTimeout(() => window.setReportFilter(currentReportFilter), 100);
         }
 
