@@ -55,20 +55,29 @@
     <div id="tab-inspect" class="tab-content active p-4 max-w-lg mx-auto space-y-6">
         
         <!-- LIVE SENSORS DASHBOARD -->
-        <div class="grid grid-cols-2 gap-3">
-            <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+        <div class="grid grid-cols-3 gap-2">
+            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
-                    GPS Location
+                    GPS
                 </span>
-                <div id="gps-status" class="text-xs font-mono text-orange-500 font-bold truncate w-full">Acquiring...</div>
+                <div id="gps-status" class="text-[10px] font-mono text-orange-500 font-bold truncate w-full">Acquiring...</div>
             </div>
-            <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+            
+            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50" onclick="window.requestCompassPermission()">
+                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clip-rule="evenodd" /></svg>
+                    Compass
+                </span>
+                <div id="compass-status" class="text-[10px] font-mono text-gray-400 font-bold truncate w-full">Tap to Enable</div>
+            </div>
+
+            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
                     Weather
                 </span>
-                <div id="weather-status" class="text-xs font-medium text-gray-400 truncate w-full">Waiting for GPS...</div>
+                <div id="weather-status" class="text-[10px] font-medium text-gray-400 truncate w-full">Waiting...</div>
             </div>
         </div>
 
@@ -158,7 +167,10 @@
         </div>
 
         <!-- Photo Log Controls -->
-        <div id="photo-log-controls" class="mb-4 flex justify-end gap-2">
+        <div id="photo-log-controls" class="mb-4 flex justify-end gap-2 flex-wrap">
+            <button onclick="window.generateCSVReport()" class="text-xs bg-green-600 text-white font-semibold hover:bg-green-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                Export Data (CSV)
+            </button>
             <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
                 Download Photos (ZIP)
             </button>
@@ -269,7 +281,7 @@
                     <input type="text" id="modal-caption-title" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Title / Location (e.g. Girder 3)">
                     <textarea id="modal-caption-desc" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="Detailed Description..."></textarea>
                 </div>
-                <button id="ai-caption-btn" onclick="window.generateAICaption()" class="w-full mb-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow transition">Analyze & Suggest Caption ✨</button>
+                <!-- AI Button Removed Here -->
                 <div class="flex gap-3">
                     <button onclick="window.cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg">Discard</button>
                     <button onclick="window.confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Save & Upload</button>
@@ -319,14 +331,11 @@
                         <div class="flex gap-2"><button onclick="window.createNewProject()" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded">Create</button><button onclick="window.toggleNewProjectInput()" class="bg-gray-200 text-gray-600 px-3 rounded text-xs">Cancel</button></div>
                     </div>
                 </div>
-                <div class="bg-yellow-50 p-3 rounded border border-yellow-200"><button onclick="window.importLegacyFiles()" class="w-full bg-yellow-100 text-yellow-800 text-xs font-bold py-2 rounded">Scan & Import Missing Photos</button></div>
-                <div class="bg-gray-50 p-3 rounded border border-gray-200"><button onclick="window.copyStorageRules()" class="w-full bg-white text-gray-600 text-xs font-bold py-2 rounded">Copy Storage Rules</button></div>
             </div>
             <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="mt-6 w-full py-3 bg-gray-800 text-white font-bold rounded-lg">Close</button>
         </div>
     </div>
     
-    <div id="st-rules" class="hidden">rules_version = '2'; service firebase.storage { match /b/{bucket}/o { match /artifacts/{appId}/{allPaths=**} { allow read, write: if request.auth != null; } } }</div>
     <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[60]">Photo Added</div>
     <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white"><div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div><p id="loading-text" class="font-medium">Uploading...</p></div>
 
@@ -355,12 +364,54 @@
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
         let currentWeather = { temp: "", desc: "" };
+        let currentHeading = null;
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
+
+        // --- COMPASS ---
+        window.requestCompassPermission = async () => {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const perm = await DeviceOrientationEvent.requestPermission();
+                    if (perm === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation);
+                        document.getElementById('compass-status').innerText = "Active";
+                    } else {
+                        alert("Permission denied");
+                    }
+                } catch(e) { alert(e); }
+            } else {
+                alert("Not required on this device or not supported.");
+                window.addEventListener('deviceorientationabsolute', handleOrientation);
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+        };
+
+        function handleOrientation(e) {
+            let heading = null;
+            if(e.webkitCompassHeading) {
+                heading = e.webkitCompassHeading;
+            } else if (e.alpha !== null) {
+                // Approximate for Android if absolute is available, else relative
+                heading = 360 - e.alpha; 
+            }
+            
+            if(heading !== null) {
+                currentHeading = heading;
+                const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+                const ix = Math.round(heading / 45) % 8;
+                const el = document.getElementById('compass-status');
+                if(el) {
+                    el.innerText = `${Math.round(heading)}° ${dirs[ix]}`;
+                    el.classList.remove('text-gray-400');
+                    el.classList.add('text-blue-600');
+                }
+            }
+        }
 
         // --- WEATHER FETCHING ---
         async function fetchWeather(lat, lng) {
@@ -446,6 +497,14 @@
                     const gpsStr = meta.lat ? `${meta.lat.toFixed(6)}, ${meta.lng.toFixed(6)}` : "No GPS Data";
                     const wxStr = meta.weather ? `${meta.weather.desc} (${meta.weather.temp})` : "Weather: N/A";
                     const capStr = meta.caption || "No Caption";
+                    
+                    // Format Compass
+                    let hdgStr = "";
+                    if(meta.heading !== null && meta.heading !== undefined) {
+                        const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+                        const ix = Math.round(meta.heading / 45) % 8;
+                        hdgStr = ` | HDG: ${Math.round(meta.heading)}° ${dirs[ix]}`;
+                    }
 
                     // Helper for text wrapping
                     const getLines = (ctx, text, maxWidth) => {
@@ -476,7 +535,7 @@
 
                     const fixedLines = [
                         `DATE: ${dateStr}`,
-                        `LOC: ${gpsStr}`,
+                        `LOC: ${gpsStr}${hdgStr}`, // Added Compass Here
                         `WX: ${wxStr}`
                     ];
 
@@ -766,7 +825,6 @@
             document.getElementById('modal-img-preview').src=url;
             document.getElementById('modal-caption-title').value="";
             document.getElementById('modal-caption-desc').value="";
-            document.getElementById('ai-caption-btn').classList.remove('hidden');
             // FIX: Use 'label' instead of 'h3' to match HTML structure
             document.querySelector('#caption-modal label').innerText = "Photo Caption";
             document.getElementById('modal-save-btn').innerText = "Save & Upload";
@@ -778,7 +836,6 @@
              document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
              document.getElementById('modal-caption-title').value = "";
              document.getElementById('modal-caption-desc').value = "";
-             document.getElementById('ai-caption-btn').classList.add('hidden');
              document.querySelector('#caption-modal label').innerText = `Batch Caption for ${seriesPhotoQueue.length} Photos`;
              document.getElementById('modal-save-btn').innerText = `Upload ${seriesPhotoQueue.length} Photos`;
              document.getElementById('caption-modal').classList.remove('hidden');
@@ -847,7 +904,7 @@
         window.browserUp = () => { const p=browserPath.split('/'); if(p.length>1){p.pop();loadBrowser(p.join('/'));} };
         window.refreshBrowser = () => loadBrowser(browserPath);
         window.copyStorageRules = () => navigator.clipboard.writeText(document.getElementById('st-rules').innerText);
-        window.importLegacyFiles = async () => { if(confirm("Scan storage?")) { const scan=async(r,pn)=>{const l=await listAll(r);for(const f of l.items){const id=f.name.split('.')[0];const u=await getDownloadURL(f);await setDoc(doc(db,`artifacts/${appId}/public/data/images`,id),{id,projectId:pn||"Unsorted",url:u,storagePath:f.fullPath,caption:"Imported",timestamp:Date.now(),dateString:"Imported"},{merge:true});}for(const p of l.prefixes){addProjectToSet(p.name);await scan(p,p.name);}}; await scan(ref(storage,`artifacts/${appId}/public/data/files`),"Unsorted"); alert("Done"); } };
+        
         
         window.setReportFilter = (filter) => {
             currentReportFilter = filter;
@@ -879,6 +936,53 @@
                 const c = await zip.generateAsync({type:"blob"});
                 saveAs(c, `${currentProject}_Photos.zip`);
             } catch(e) { console.error(e); alert("Zip Failed"); } finally { setLoading(false); }
+        };
+
+        // NEW: Generate CSV Report
+        window.generateCSVReport = () => {
+            if (cachedItems.length === 0) return alert("No data to export.");
+            
+            // Sort by timestamp (oldest to newest usually better for raw data, but matching sort order is fine)
+            // Let's stick to chronological order for raw data exports as it's standard
+            const sorted = [...cachedItems].sort((a, b) => a.timestamp - b.timestamp);
+
+            let csv = "ID,Type,Date,Time,Project,Photo_Number,Title,Description,Latitude,Longitude,Heading,Weather,Image_URL\n";
+            
+            const clean = (text) => {
+                if (!text) return "";
+                // Escape quotes by doubling them, wrap field in quotes
+                return `"${String(text).replace(/"/g, '""')}"`; 
+            };
+
+            sorted.forEach(item => {
+                const d = new Date(item.timestamp);
+                const dateStr = d.toLocaleDateString();
+                const timeStr = d.toLocaleTimeString();
+                
+                const desc = item.detailedDesc || item.caption || item.text || "";
+                const wx = item.weather ? `${item.weather.desc} ${item.weather.temp}` : "";
+                const hdg = item.heading !== null && item.heading !== undefined ? Math.round(item.heading) : "";
+
+                const row = [
+                    item.id,
+                    item.type,
+                    clean(dateStr),
+                    clean(timeStr),
+                    clean(item.projectId),
+                    item.photoNumber || "",
+                    clean(item.title),
+                    clean(desc),
+                    item.lat || "",
+                    item.lng || "",
+                    hdg,
+                    clean(wx),
+                    clean(item.url)
+                ].join(",");
+                
+                csv += row + "\n";
+            });
+
+            saveAs(new Blob([csv], {type: 'text/csv;charset=utf-8'}), `${currentProject}_Export.csv`);
         };
 
         window.downloadNotesTextReport = () => {
@@ -916,7 +1020,8 @@
                     weather: currentEditingItem.weather,
                     caption: newCaption,
                     seriesIndex: currentEditingItem.seriesIndex,
-                    photoNumber: String(currentEditingItem.photoNumber || "").padStart(3, '0')
+                    photoNumber: String(currentEditingItem.photoNumber || "").padStart(3, '0'),
+                    heading: currentEditingItem.heading // Preserve heading if available
                 };
                 const newImageBlob = await processImageWithOverlay(rawBlob, meta);
                 
@@ -999,7 +1104,8 @@
                             weather: currentWeather,
                             caption: item.caption,
                             seriesIndex: item.seriesIndex,
-                            photoNumber: photoIdStr
+                            photoNumber: photoIdStr,
+                            heading: currentHeading // Add heading to metadata
                         };
                         finalBlob = await processImageWithOverlay(item.blob, meta);
                      }
@@ -1009,7 +1115,7 @@
                      const url = await getDownloadURL(snap.ref);
                      
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum, rawStoragePath: rawPath
+                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum, rawStoragePath: rawPath, heading: currentHeading
                      });
                  });
                  await Promise.all(uploads);
@@ -1038,20 +1144,6 @@
              loadReport();
         };
         
-        window.generateAICaption = async () => {
-            if (!pendingBase64) return alert("Photo still loading.");
-            const btn = document.getElementById('ai-caption-btn'); btn.disabled=true; btn.innerText="Analyzing...";
-            const apiKey = "";
-            try {
-                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({contents:[{parts:[{text:"Analyze structural defect, return short caption max 15 words."},{inlineData:{mimeType:"image/jpeg",data:pendingBase64}}]}]})
-                });
-                const res = await r.json();
-                document.getElementById('modal-caption-desc').value = res.candidates[0].content.parts[0].text.trim();
-            } catch(e) { console.error(e); alert("AI Failed"); } finally { btn.disabled=false; btn.innerText="Analyze & Suggest Caption ✨"; }
-        };
-
         function addProjectToSet(p){ knownProjects.add(p); localStorage.setItem('fc_projects', JSON.stringify(Array.from(knownProjects))); renderProjectOptions(); }
         function renderProjectOptions() { const s=document.getElementById('project-select'); s.innerHTML=''; Array.from(knownProjects).sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.text=p;if(p===currentProject)o.selected=true;s.appendChild(o)}); }
         function updateProjectHeader() { document.getElementById('project-header').innerText=`Project: ${currentProject}`; }
@@ -1127,6 +1219,13 @@
                     el.innerText = "Not Supported";
                     el.classList.add('text-red-500');
                 }
+            }
+            
+            // Try to initialize compass if permission is already granted (or not needed)
+            if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+                 window.addEventListener('deviceorientationabsolute', handleOrientation);
+                 window.addEventListener('deviceorientation', handleOrientation);
+                 document.getElementById('compass-status').innerText = "Active";
             }
 
             updateProjectHeader(); renderProjectOptions();
