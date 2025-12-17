@@ -372,13 +372,19 @@
                     const padding = fontSize;
 
                     // Draw semi-transparent black bar at bottom
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; // Increased opacity
                     ctx.fillRect(0, h - barHeight, w, barHeight);
 
                     // Text Settings
                     ctx.fillStyle = "#ffffff";
                     ctx.font = `bold ${fontSize}px sans-serif`;
                     ctx.textBaseline = "top";
+                    
+                    // Shadow for better legibility
+                    ctx.shadowColor = "black";
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetX = 2;
+                    ctx.shadowOffsetY = 2;
 
                     // Layout Text
                     // Line 1: Project | Photo ID | Date/Time
@@ -835,7 +841,7 @@
             if (token) { try { await signInWithCustomToken(auth, token); } catch { await signInAnonymously(auth); } }
             else { await signInAnonymously(auth); }
 
-            document.getElementById('camera-input').onchange = handleCameraInput;
+            document.getElementById('camera-input').onchange = window.handleCameraInput; // FIXED REFERENCE
             document.getElementById('report-search').oninput = (e) => filterReport(e.target.value);
             
             // Watch GPS & Weather
