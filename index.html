@@ -227,7 +227,11 @@
             <!-- Header -->
             <div class="flex justify-between items-center p-2 text-white bg-black/50">
                 <h3 class="font-bold text-lg">Inspection Detail</h3>
-                <button onclick="window.closeImageDetail()" class="p-2 bg-gray-800 rounded-full hover:bg-gray-700 text-white w-8 h-8 flex items-center justify-center">✕</button>
+                <div class="flex gap-2">
+                    <button id="detail-download-raw-btn" class="hidden p-2 bg-orange-600 rounded-full hover:bg-orange-500 text-white w-8 h-8 flex items-center justify-center font-bold text-[10px]">RAW</button>
+                    <button id="detail-download-btn" class="p-2 bg-blue-600 rounded-full hover:bg-blue-500 text-white w-8 h-8 flex items-center justify-center">↓</button>
+                    <button onclick="window.closeImageDetail()" class="p-2 bg-gray-800 rounded-full hover:bg-gray-700 text-white w-8 h-8 flex items-center justify-center">✕</button>
+                </div>
             </div>
             
             <!-- Image Area -->
@@ -327,6 +331,7 @@
         </div>
     </div>
     
+    <div id="st-rules" class="hidden">rules_version = '2'; service firebase.storage { match /b/{bucket}/o { match /artifacts/{appId}/{allPaths=**} { allow read, write: if request.auth != null; } } }</div>
     <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[60]">Photo Added</div>
     <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white"><div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div><p id="loading-text" class="font-medium">Uploading...</p></div>
 
@@ -606,6 +611,18 @@
             
             document.getElementById('detail-project').innerText = item.projectId || "";
             document.getElementById('detail-id').innerText = item.id.substring(8); // Short ID
+            
+            // Set download button handler
+            document.getElementById('detail-download-btn').onclick = () => window.downloadSinglePhoto(id);
+            
+            // Handle Raw Download Button Visibility
+            const rawBtn = document.getElementById('detail-download-raw-btn');
+            if (item.rawStoragePath) {
+                rawBtn.classList.remove('hidden');
+                rawBtn.onclick = () => window.downloadRawPhoto(id);
+            } else {
+                rawBtn.classList.add('hidden');
+            }
 
             document.getElementById('image-detail-modal').classList.remove('hidden');
         };
@@ -736,6 +753,15 @@
                         <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition"></div>
                         <div class="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1 rounded">🔍</div>
                        </div>`;
+                       
+                // Added Download Button Logic (Both Standard and Raw)
+                let downloadBtn = '';
+                if (item.type === 'photo') {
+                    downloadBtn += `<button onclick="window.downloadSinglePhoto('${item.id}')" class="text-xs text-green-600 font-bold hover:underline">Download</button>`;
+                    if (item.rawStoragePath) {
+                        downloadBtn += `<button onclick="window.downloadRawPhoto('${item.id}')" class="text-xs text-orange-600 font-bold hover:underline ml-2">Raw</button>`;
+                    }
+                }
 
                 div.innerHTML = `${left}
                 <div class="p-3 flex-1 flex flex-col justify-between">
@@ -746,9 +772,10 @@
                         </div>
                         <p class="text-sm font-medium">${item.caption || item.text}</p>
                     </div>
-                    <div class="flex justify-end gap-2 mt-2">
-                        <button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold">Edit</button>
-                        <button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold">Delete</button>
+                    <div class="flex justify-end gap-2 mt-2 items-center">
+                        ${downloadBtn}
+                        <button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold hover:underline">Edit</button>
+                        <button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold hover:underline">Delete</button>
                     </div>
                 </div>`;
                 feed.appendChild(div);
@@ -927,6 +954,43 @@
                 const c = await zip.generateAsync({type:"blob"});
                 saveAs(c, `${currentProject}_Photos.zip`);
             } catch(e) { console.error(e); alert("Zip Failed"); } finally { setLoading(false); }
+        };
+
+        // NEW: Download Single Photo
+        window.downloadSinglePhoto = async (id) => {
+            const item = cachedItems.find(i => i.id === id);
+            if (!item || !item.url) return alert("Photo not found.");
+            
+            try {
+                setLoading(true, "Downloading...");
+                const resp = await fetch(item.url);
+                const blob = await resp.blob();
+                saveAs(blob, `${item.projectId}_${item.id}.jpg`);
+            } catch(e) {
+                console.error(e);
+                alert("Download failed.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        // NEW: Download RAW Photo
+        window.downloadRawPhoto = async (id) => {
+            const item = cachedItems.find(i => i.id === id);
+            if (!item || !item.rawStoragePath) return alert("Raw photo not found.");
+
+            try {
+                setLoading(true, "Fetching Raw Photo...");
+                const url = await getDownloadURL(ref(storage, item.rawStoragePath));
+                const resp = await fetch(url);
+                const blob = await resp.blob();
+                saveAs(blob, `${item.projectId}_${item.id}_RAW.jpg`);
+            } catch(e) {
+                console.error(e);
+                alert("Download failed.");
+            } finally {
+                setLoading(false);
+            }
         };
 
         // NEW: Generate CSV Report
