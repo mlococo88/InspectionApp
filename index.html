@@ -43,13 +43,7 @@
             <h1 class="text-lg font-bold text-blue-800">Field Notes <span class="text-gray-800">by ML</span></h1>
             <p class="text-xs text-gray-500 cursor-pointer hover:text-blue-600" onclick="document.getElementById('settings-modal').classList.remove('hidden')" id="project-header">Project: Bridge-001</p>
         </div>
-        <div class="flex items-center gap-3">
-            <!-- Sync Indicator -->
-            <button id="sync-btn" onclick="window.triggerSync()" class="hidden flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold shadow-sm">
-                <span>☁️</span>
-                <span id="sync-count">0</span>
-            </button>
-            
+        <div class="flex items-center gap-2">
             <div id="status-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
             <button onclick="document.getElementById('settings-modal').classList.remove('hidden')" class="p-2 text-gray-500 hover:text-blue-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -415,11 +409,6 @@
         
         // WHITEBOARD VARS
         let wbCanvas, wbCtx, isDrawing = false, lastX = 0, lastY = 0;
-        
-        // OFFLINE DB
-        let dbOffline = null;
-        const DB_NAME = 'fc_offline_db';
-        const DB_STORE = 'uploads';
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
@@ -427,90 +416,6 @@
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
         
-        // Helper to sanitize project IDs for storage paths
-        function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
-        
-        // --- INDEXED DB & OFFLINE LOGIC ---
-        function initDB() {
-            const req = indexedDB.open(DB_NAME, 1);
-            req.onupgradeneeded = (e) => {
-                const d = e.target.result;
-                if(!d.objectStoreNames.contains(DB_STORE)) d.createObjectStore(DB_STORE, { keyPath: 'id' });
-            };
-            req.onsuccess = (e) => {
-                dbOffline = e.target.result;
-                updateSyncCount();
-            };
-        }
-        
-        function saveToOfflineQueue(item) {
-            if(!dbOffline) return;
-            const tx = dbOffline.transaction(DB_STORE, 'readwrite');
-            tx.objectStore(DB_STORE).put(item);
-            tx.oncomplete = () => {
-                updateSyncCount();
-                showToast("Saved to Device (Offline)");
-            };
-        }
-        
-        function updateSyncCount() {
-            if(!dbOffline) return;
-            const tx = dbOffline.transaction(DB_STORE, 'readonly');
-            const countReq = tx.objectStore(DB_STORE).count();
-            countReq.onsuccess = () => {
-                const n = countReq.result;
-                const btn = document.getElementById('sync-btn');
-                document.getElementById('sync-count').innerText = n;
-                btn.classList.toggle('hidden', n === 0);
-            };
-        }
-        
-        window.triggerSync = async () => {
-             if(!navigator.onLine) return alert("Still offline.");
-             setLoading(true, "Syncing...");
-             const tx = dbOffline.transaction(DB_STORE, 'readonly');
-             const req = tx.objectStore(DB_STORE).getAll();
-             req.onsuccess = async () => {
-                 const items = req.result;
-                 let successCount = 0;
-                 for (const item of items) {
-                     try {
-                         // Re-run upload logic
-                         // We reconstruct the upload call basically
-                         // For simplicity, we just process image uploads here if type is photo
-                         if(item.type === 'photo') {
-                             const rawPath = `artifacts/${appId}/public/data/files/${item.projectId}/raw_${item.id}.jpg`;
-                             await uploadBytes(ref(storage, rawPath), item.blob); // We stored the blob!
-                             
-                             // Re-process overlay? No, we likely stored the finalized blob too? 
-                             // To keep it robust, let's assume we stored the raw blob and metadata to re-burn or the final blob.
-                             // Strategy: Store the FINAL blob in indexedDB to avoid re-processing.
-                             
-                             const path = `artifacts/${appId}/public/data/files/${item.projectId}/${item.id}.jpg`;
-                             const snap = await uploadBytes(ref(storage, path), item.finalBlob, { contentType: 'image/jpeg' });
-                             const url = await getDownloadURL(snap.ref);
-                             
-                             await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                                 ...item.firestoreData,
-                                 url: url,
-                                 storagePath: path
-                             });
-                         }
-                         
-                         // Delete from IDB
-                         const delTx = dbOffline.transaction(DB_STORE, 'readwrite');
-                         delTx.objectStore(DB_STORE).delete(item.id);
-                         successCount++;
-                     } catch(e) {
-                         console.error("Sync failed for item", item.id, e);
-                     }
-                 }
-                 setLoading(false);
-                 updateSyncCount();
-                 if(successCount > 0) showToast(`Synced ${successCount} items`);
-             };
-        };
-
         // Delete Raw File Helper
         window.deleteRawFile = async (fullPath) => {
             if(!confirm("Are you sure you want to permanently delete this file? This cannot be undone.")) return;
@@ -1449,7 +1354,6 @@
             }
         };
 
-        // NEW: confirmUpload with offline support & race condition fix
         window.confirmUpload = async () => {
              if(!user) return alert("Error: No user found.");
              let itemsToProcess = [];
@@ -1482,105 +1386,53 @@
              // Calculate max photo number
              const existingPhotos = cachedItems.filter(i => i.type === 'photo');
              const maxNum = existingPhotos.reduce((max, item) => Math.max(max, item.photoNumber || 0), 0);
-             
-             // Process items concurrently but fail gracefully
-             // We'll wrap the upload logic in a function that returns a promise which
-             // resolves if uploaded, or rejects if it needs to go offline.
-             
-             const processItem = async (item, index) => {
-                 const thisNum = maxNum + index + 1;
-                 const photoIdStr = String(thisNum).padStart(3, '0');
-                 let rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
-                 let processedPath = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
-                 let finalBlob = item.blob;
-                 let rawBlob = item.blob;
-                 
-                 // Process image (burn text) locally first - this is fast and synchronous-ish
-                 if (doBurn) {
-                    const meta = {
-                        projectId: currentProject,
-                        id: item.id,
-                        timestamp: item.timestamp,
-                        lat: currentLocation?.lat,
-                        lng: currentLocation?.lng,
-                        weather: currentWeather,
-                        caption: item.caption,
-                        seriesIndex: item.seriesIndex,
-                        photoNumber: photoIdStr,
-                        heading: currentHeading
-                    };
-                    finalBlob = await processImageWithOverlay(item.blob, meta);
-                 }
-                 
-                 // Prepare metadata payload for Firestore
-                 const docPayload = {
-                     id: item.id, 
-                     type:'photo', 
-                     projectId:currentProject, 
-                     // url: ... will be added after upload
-                     storagePath: processedPath,
-                     rawStoragePath: rawPath,
-                     caption: item.caption, 
-                     title: title, 
-                     detailedDesc: desc, 
-                     timestamp:Date.now(), 
-                     dateString:new Date().toLocaleString(), 
-                     lat:currentLocation?.lat || null, 
-                     lng:currentLocation?.lng || null, 
-                     photoNumber: thisNum, 
-                     heading: currentHeading
-                 };
 
-                 // If offline or if we want to race against a timeout
-                 const uploadPromise = async () => {
-                     if (!navigator.onLine) throw new Error("Offline");
+             try {
+                 const uploads = itemsToProcess.map(async (item, index) => {
+                     let finalBlob = item.blob;
+                     const thisNum = maxNum + index + 1;
+                     const photoIdStr = String(thisNum).padStart(3, '0');
                      
-                     // Upload Raw
-                     await uploadBytes(ref(storage, rawPath), rawBlob, { contentType: 'image/jpeg' });
-                     
-                     // Upload Final
-                     const snap = await uploadBytes(ref(storage, processedPath), finalBlob, { contentType: 'image/jpeg' });
+                     // 1. Upload RAW - CHANGED to use flat structure
+                     // Removed sanitizeFilename - use currentProject directly
+                     const rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
+                     await uploadBytes(ref(storage, rawPath), item.blob, { contentType: 'image/jpeg' });
+
+                     // 2. Burn text if toggle is on
+                     if (doBurn) {
+                        const meta = {
+                            projectId: currentProject,
+                            id: item.id,
+                            timestamp: item.timestamp,
+                            lat: currentLocation?.lat,
+                            lng: currentLocation?.lng,
+                            weather: currentWeather,
+                            caption: item.caption,
+                            seriesIndex: item.seriesIndex,
+                            photoNumber: photoIdStr,
+                            heading: currentHeading // Add heading to metadata
+                        };
+                        finalBlob = await processImageWithOverlay(item.blob, meta);
+                     }
+
+                     // Upload Processed - CHANGED to use flat structure
+                     // Removed sanitizeFilename - use currentProject directly
+                     const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
+                     const snap = await uploadBytes(ref(storage, path), finalBlob, { contentType: 'image/jpeg' });
                      const url = await getDownloadURL(snap.ref);
                      
-                     // Save to Firestore
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                         ...docPayload,
-                         url: url
+                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum, rawStoragePath: rawPath, heading: currentHeading
                      });
-                     
-                     return true; // Success
-                 };
-
-                 // Race against 10s timeout
-                 const timeoutPromise = new Promise((_, reject) => 
-                     setTimeout(() => reject(new Error("Timeout")), 15000)
-                 );
-
-                 try {
-                     await Promise.race([uploadPromise(), timeoutPromise]);
-                 } catch (err) {
-                     console.warn(`Upload failed/timed out for item ${item.id}. Saving offline.`, err);
-                     // Save to IndexedDB
-                     saveToOfflineQueue({
-                         ...docPayload,
-                         blob: rawBlob, // Store raw
-                         finalBlob: finalBlob // Store processed too to save processing time later?
-                         // Actually, sync logic re-uploads.
-                         // Let's store rawBlob and let sync logic handle it.
-                         // Or better, store all needed to upload.
-                     });
-                 }
-             };
-
-             await Promise.all(items.map((item, i) => processItem(item, i)));
-             
-             addProjectToSet(currentProject);
-             document.getElementById('caption-modal').classList.add('hidden');
-             isSeriesMode = false;
-             document.getElementById('series-mode-btn').classList.remove('active');
-             document.getElementById('series-mode-btn').innerHTML = '<span id="series-icon">🔄</span> Enable Photo Series';
-             setLoading(false);
-             switchTab('report');
+                 });
+                 await Promise.all(uploads);
+                 addProjectToSet(currentProject);
+                 document.getElementById('caption-modal').classList.add('hidden');
+                 isSeriesMode = false;
+                 document.getElementById('series-mode-btn').classList.remove('active');
+                 document.getElementById('series-mode-btn').innerHTML = '<span id="series-icon">🔄</span> Enable Photo Series';
+                 switchTab('report');
+             } catch(e) { alert("Upload Failed: " + e.message); } finally { setLoading(false); }
         };
 
         window.confirmQuickNote = async () => { 
@@ -1623,8 +1475,6 @@
         async function init() {
             const app = initializeApp(config);
             auth = getAuth(app); db = getFirestore(app); storage = getStorage(app);
-            
-            initDB(); // Initialize Offline DB
 
             onAuthStateChanged(auth, (u) => {
                 user = u;
@@ -1642,8 +1492,6 @@
 
             document.getElementById('camera-input').onchange = window.handleCameraInput; // FIXED REFERENCE
             document.getElementById('report-search').oninput = (e) => filterReport(e.target.value);
-            window.addEventListener('online', () => { updateStatus('online'); triggerSync(); }); // Auto sync on reconnect
-            window.addEventListener('offline', () => updateStatus('offline'));
             
             // Watch GPS & Weather
             if (navigator.geolocation) {
