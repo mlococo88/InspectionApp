@@ -30,6 +30,9 @@
             70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
             100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
         }
+
+        /* Sketch Canvas */
+        canvas { touch-action: none; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -128,6 +131,28 @@
         </div>
 
     </div>
+    
+    <!-- TAB 5: SKETCH (Refactored to isolate flex) -->
+    <div id="tab-sketch" class="tab-content p-4 max-w-4xl mx-auto h-full">
+        <div class="flex flex-col h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden" style="min-height: 70vh;">
+            <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
+                <span class="font-bold text-gray-700">Field Sketch</span>
+                <div class="flex gap-2 items-center">
+                    <input type="color" id="sketch-color" value="#000000" class="h-6 w-6 cursor-pointer border border-gray-300 rounded">
+                    <input type="range" id="sketch-size" min="1" max="10" value="2" class="w-20">
+                    <button onclick="window.clearSketch()" class="px-3 py-1 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 bg-white">Clear</button>
+                </div>
+            </div>
+            <div class="relative flex-1 bg-white cursor-crosshair touch-none border-b border-gray-200" id="sketch-wrapper">
+                <canvas id="sketch-canvas" class="w-full h-full"></canvas>
+            </div>
+            <div class="p-4 bg-gray-50 space-y-3">
+                <input type="text" id="sketch-title" class="w-full border border-gray-300 rounded-lg p-2 text-sm" placeholder="Sketch Title / Location">
+                <textarea id="sketch-desc" class="w-full border border-gray-300 rounded-lg p-2 text-sm h-16 resize-none" placeholder="Description of details..."></textarea>
+                <button onclick="window.saveSketch()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Sketch & Burn Data</button>
+            </div>
+        </div>
+    </div>
 
     <!-- TAB 2: REPORT LOG (FIRESTORE) -->
     <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
@@ -209,6 +234,10 @@
         <button onclick="window.switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">📷</span>
             <span class="text-[10px] font-bold mt-1">Inspect</span>
+        </button>
+        <button onclick="window.switchTab('sketch')" id="nav-sketch" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
+            <span class="text-xl">✏️</span>
+            <span class="text-[10px] font-bold mt-1">Sketch</span>
         </button>
         <button onclick="window.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">📋</span>
@@ -358,18 +387,186 @@
         let knownProjects = new Set(JSON.parse(localStorage.getItem('fc_projects') || '["Bridge-001"]'));
         
         let pendingBlob = null, pendingBase64 = null;
-        let browserPath = `artifacts/${appId}/public/data/files`;
+        // CHANGED: Use 'files' collection to resolve permission error & ensure consistent path
+        let browserPath = `artifacts/${appId}/public/data/files`; 
         let currentEditingItem = null, currentReportFilter = 'photo', currentSort = 'newest';
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
         let currentWeather = { temp: "", desc: "" };
         let currentHeading = null;
+        
+        // SKETCH VARS
+        let sketchCanvas, sketchCtx, isDrawing = false, lastX = 0, lastY = 0;
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
+        
+        // Helper to sanitize project IDs for storage paths
+        function sanitizeFilename(name) {
+            return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        }
+
+        // --- SKETCH FUNCTIONS ---
+        function initSketchCanvas() {
+            sketchCanvas = document.getElementById('sketch-canvas');
+            const wrapper = document.getElementById('sketch-wrapper');
+            sketchCanvas.width = wrapper.offsetWidth;
+            sketchCanvas.height = wrapper.offsetHeight;
+            sketchCtx = sketchCanvas.getContext('2d');
+            sketchCtx.lineJoin = 'round';
+            sketchCtx.lineCap = 'round';
+            sketchCtx.lineWidth = 2;
+            sketchCtx.strokeStyle = '#000000';
+            
+            // Mouse Events
+            sketchCanvas.addEventListener('mousedown', startDrawing);
+            sketchCanvas.addEventListener('mousemove', draw);
+            sketchCanvas.addEventListener('mouseup', stopDrawing);
+            sketchCanvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch Events
+            sketchCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); 
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                sketchCanvas.dispatchEvent(mouseEvent);
+            }, {passive: false});
+            
+            sketchCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                sketchCanvas.dispatchEvent(mouseEvent);
+            }, {passive: false});
+            
+            sketchCanvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const mouseEvent = new MouseEvent('mouseup', {});
+                sketchCanvas.dispatchEvent(mouseEvent);
+            });
+            
+            // Color & Size
+            document.getElementById('sketch-color').onchange = (e) => sketchCtx.strokeStyle = e.target.value;
+            document.getElementById('sketch-size').oninput = (e) => sketchCtx.lineWidth = e.target.value;
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = sketchCanvas.getBoundingClientRect();
+            [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = sketchCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            sketchCtx.beginPath();
+            sketchCtx.moveTo(lastX, lastY);
+            sketchCtx.lineTo(x, y);
+            sketchCtx.stroke();
+            [lastX, lastY] = [x, y];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+        
+        window.clearSketch = () => {
+             sketchCtx.fillStyle = "#ffffff";
+             sketchCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+        };
+        
+        window.saveSketch = async () => {
+            if(!user) return alert("No user");
+            const title = document.getElementById('sketch-title').value.trim();
+            const desc = document.getElementById('sketch-desc').value.trim();
+            
+            setLoading(true, "Saving Sketch...");
+            
+            // Get Blob from Canvas
+            sketchCanvas.toBlob(async (blob) => {
+                if(!blob) { setLoading(false); return alert("Canvas empty?"); }
+                
+                try {
+                    // Prep Data
+                    const id = Date.now().toString();
+                    
+                    // We treat this like a photo for the overlay logic
+                    let caption = desc;
+                    if(title) caption = `${title} - ${desc}`;
+                    
+                    // Calculate next number
+                    const existingPhotos = cachedItems.filter(i => i.type === 'photo');
+                    const maxNum = existingPhotos.reduce((max, item) => Math.max(max, item.photoNumber || 0), 0);
+                    const thisNum = maxNum + 1;
+                    const photoIdStr = String(thisNum).padStart(3, '0');
+
+                    const meta = {
+                        projectId: currentProject,
+                        id: id,
+                        timestamp: Date.now(),
+                        lat: currentLocation?.lat,
+                        lng: currentLocation?.lng,
+                        weather: currentWeather,
+                        caption: caption,
+                        photoNumber: photoIdStr,
+                        heading: currentHeading
+                    };
+
+                    // Burn Metadata
+                    const finalBlob = await processImageWithOverlay(blob, meta);
+                    
+                    // Upload - CHANGED to 'files' collection & Use currentProject directly
+                    // Use flat structure: ProjectName_sketch_ID.jpg
+                    const safeProject = sanitizeFilename(currentProject);
+                    const path = `artifacts/${appId}/public/data/files/${safeProject}_sketch_${id}.jpg`;
+                    const snap = await uploadBytes(ref(storage, path), finalBlob);
+                    const url = await getDownloadURL(snap.ref);
+                    
+                    // Save Doc
+                    await setDoc(doc(db, `artifacts/${appId}/public/data/images`, id), {
+                        id: id, 
+                        type:'photo', // Treat as photo for report compatibility
+                        subtype: 'sketch',
+                        projectId:currentProject, 
+                        url, 
+                        storagePath:path, 
+                        caption: caption, 
+                        title: title, 
+                        detailedDesc: desc, 
+                        timestamp:Date.now(), 
+                        dateString:new Date().toLocaleString(), 
+                        lat:currentLocation?.lat || null, 
+                        lng:currentLocation?.lng || null, 
+                        photoNumber: thisNum, 
+                        heading: currentHeading
+                    });
+                    
+                    addProjectToSet(currentProject);
+                    window.clearSketch();
+                    document.getElementById('sketch-title').value = "";
+                    document.getElementById('sketch-desc').value = "";
+                    switchTab('report');
+                    showToast("Sketch Saved!");
+                } catch(e) {
+                    console.error(e);
+                    alert("Sketch Save Failed: " + e.message);
+                } finally {
+                    setLoading(false);
+                }
+            }, 'image/jpeg', 0.95);
+        };
 
         // --- COMPASS ---
         window.requestCompassPermission = async () => {
@@ -453,6 +650,10 @@
                     canvas.width = w;
                     canvas.height = h;
                     const ctx = canvas.getContext('2d');
+                    
+                    // Fill white background for sketches to handle transparency
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, w, h);
 
                     // Draw original
                     ctx.drawImage(img, 0, 0);
@@ -854,7 +1055,7 @@
         };
 
         function openBatchCaptionModal() {
-             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
+             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
              document.getElementById('modal-caption-title').value = "";
              document.getElementById('modal-caption-desc').value = "";
              document.querySelector('#caption-modal label').innerText = `Batch Caption for ${seriesPhotoQueue.length} Photos`;
@@ -916,6 +1117,7 @@
             document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active','text-blue-600')); document.getElementById(`nav-${id}`).classList.add('active','text-blue-600');
             if(id==='map') setTimeout(initMap, 200);
             if(id==='files') loadBrowser(browserPath);
+            if(id==='sketch') setTimeout(initSketchCanvas, 200); // Initialize canvas when tab is shown
         }
         window.updateProjectID = (v) => { currentProject=v; document.getElementById('project-header').innerText=`Project: ${v}`; loadReport(); };
         window.toggleNewProjectInput = () => document.getElementById('new-project-div').classList.toggle('hidden');
@@ -1170,9 +1372,10 @@
                      const thisNum = maxNum + index + 1;
                      const photoIdStr = String(thisNum).padStart(3, '0');
                      
-                     // 1. Upload RAW
-                     const rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
-                     await uploadBytes(ref(storage, rawPath), item.blob);
+                     // 1. Upload RAW - CHANGED to 'files' collection
+                     const safeProject = sanitizeFilename(currentProject);
+                     const rawPath = `artifacts/${appId}/public/data/files/${safeProject}_raw_${item.id}.jpg`;
+                     await uploadBytes(ref(storage, rawPath), item.blob); // Removed explicit contentType
 
                      // 2. Burn text if toggle is on
                      if (doBurn) {
@@ -1191,8 +1394,9 @@
                         finalBlob = await processImageWithOverlay(item.blob, meta);
                      }
 
-                     const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
-                     const snap = await uploadBytes(ref(storage, path), finalBlob);
+                     // Upload Processed - CHANGED to 'files' collection
+                     const path = `artifacts/${appId}/public/data/files/${safeProject}_${item.id}.jpg`;
+                     const snap = await uploadBytes(ref(storage, path), finalBlob); // Removed explicit contentType
                      const url = await getDownloadURL(snap.ref);
                      
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
