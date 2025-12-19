@@ -432,14 +432,138 @@
         const DB_NAME = 'fc_offline_db';
         const DB_STORE = 'uploads';
 
-        // -- CORE FUNCTIONS MOVED TO TOP --
+        // -- UTILITY FUNCTIONS --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        // Helper to sanitize project IDs for storage paths
         function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
+
+        // -- CORE LOGIC FUNCTIONS (Hoisted) --
         
+        window.loadBrowser = async function(path) {
+            browserPath = path;
+            const grid = document.getElementById('browser-grid');
+            document.getElementById('browser-path').innerText = path;
+            grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm">Scanning...</div>';
+            try {
+                const res = await listAll(ref(storage, path));
+                grid.innerHTML = "";
+                res.prefixes.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "bg-yellow-50 border border-yellow-200 rounded p-3 text-center cursor-pointer hover:bg-yellow-100";
+                    div.onclick = () => window.loadBrowser(p.fullPath);
+                    div.innerHTML = `<div class="text-2xl mb-1">📁</div><div class="text-xs truncate font-bold text-yellow-800">${p.name}</div>`;
+                    grid.appendChild(div);
+                });
+                for (const item of res.items) {
+                    const url = await getDownloadURL(item);
+                    const div = document.createElement('div');
+                    div.className = "bg-white border border-gray-200 rounded overflow-hidden shadow-sm relative group";
+                    div.innerHTML = `
+                        <div class="h-24 bg-gray-100 relative">
+                            <img src="${url}" class="w-full h-full object-cover">
+                            <button onclick="event.preventDefault(); event.stopPropagation(); window.deleteRawFile('${item.fullPath}')" class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-sm hover:bg-red-700 z-20">✕</button>
+                        </div>
+                        <div class="p-2 text-[10px] text-gray-500 truncate">${item.name}</div>
+                        <a href="${url}" target="_blank" class="absolute inset-0 z-10"></a>
+                    `;
+                    grid.appendChild(div);
+                }
+                if(res.prefixes.length===0 && res.items.length===0) grid.innerHTML = '<div class="col-span-full text-center text-gray-300 text-sm py-4">Empty Folder</div>';
+            } catch(e) {
+                console.warn("Browser Error", e.code);
+                grid.innerHTML = `<div class="col-span-full text-center text-red-400 text-xs py-4">Error: ${e.code}</div>`;
+            }
+        };
+
+        function loadReport() {
+            if(!db) return; // Guard against early call
+            const q = query(collection(db, `artifacts/${appId}/public/data/images`), where("projectId", "==", currentProject));
+            onSnapshot(q, (s) => { 
+                cachedItems = []; s.forEach(d=>cachedItems.push(d.data())); 
+                renderReport(cachedItems); 
+                if(document.getElementById('tab-map').style.display === 'block') initMap();
+            }, (error) => {
+                console.error("Error fetching documents: ", error);
+                showToast("Error fetching data");
+            });
+        }
+
+        function renderReport(items) {
+            const feed = document.getElementById('report-feed');
+            feed.innerHTML = "";
+            let filtered = items.filter(i => currentReportFilter === 'all' || i.type === currentReportFilter);
+            filtered = filtered.sort((a,b) => currentSort === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
+
+            if(filtered.length === 0) { feed.innerHTML = `<div class="text-center text-gray-400 py-10">No items found.</div>`; return; }
+
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
+                
+                // UPDATED VISUAL SIDE FOR PHOTO TO OPEN MODAL
+                let left = item.type === 'note' 
+                    ? `<div class="w-16 bg-yellow-50 flex-shrink-0 flex items-center justify-center text-2xl">📝</div>` 
+                    : `<div class="w-1/3 bg-gray-100 flex-shrink-0 relative cursor-pointer group" onclick="window.openImageDetail('${item.id}')">
+                        <img src="${item.url}" class="absolute inset-0 w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition"></div>
+                        <div class="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1 rounded">🔍</div>
+                       </div>`;
+                       
+                // Added Download Button Logic (Both Standard and Raw)
+                let downloadBtn = '';
+                if (item.type === 'photo') {
+                    downloadBtn += `<button onclick="window.downloadSinglePhoto('${item.id}')" class="text-xs text-green-600 font-bold hover:underline">Download</button>`;
+                    if (item.rawStoragePath) {
+                        downloadBtn += `<button onclick="window.downloadRawPhoto('${item.id}')" class="text-xs text-orange-600 font-bold hover:underline ml-2">Raw</button>`;
+                    }
+                }
+
+                div.innerHTML = `${left}
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1 flex justify-between">
+                            <span>${item.dateString}</span>
+                            ${item.lat ? `<span class="text-blue-500">📍 ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}</span>` : ''}
+                        </div>
+                        <p class="text-sm font-medium">${item.caption || item.text}</p>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-2 items-center">
+                        ${downloadBtn}
+                        <button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold hover:underline">Edit</button>
+                        <button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold hover:underline">Delete</button>
+                    </div>
+                </div>`;
+                feed.appendChild(div);
+            });
+        }
+        
+        function filterReport(txt) {
+            const lower = txt.toLowerCase();
+            const cards = document.querySelectorAll('#report-feed > div');
+            cards.forEach(c => { c.style.display = c.innerText.toLowerCase().includes(lower) ? 'flex' : 'none'; });
+        }
+
+        function initMap() {
+            if (typeof L === 'undefined' || !document.getElementById('map-container')) return;
+            if (!mapInstance) {
+                mapInstance = L.map('map-container').setView([39.8, -98.5], 4);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+                markerGroup = L.layerGroup().addTo(mapInstance);
+            }
+            markerGroup.clearLayers();
+            let bounds = [];
+            cachedItems.forEach(item => {
+                if (item.lat && item.lng) {
+                    const m = L.marker([item.lat, item.lng]).bindPopup(item.caption || item.text);
+                    markerGroup.addLayer(m);
+                    bounds.push([item.lat, item.lng]);
+                }
+            });
+            if(bounds.length) mapInstance.fitBounds(bounds, {padding:[50,50]});
+        }
+
         // --- INDEXED DB & OFFLINE LOGIC ---
         function initDB() {
             const req = indexedDB.open(DB_NAME, 1);
@@ -471,7 +595,7 @@
                 const n = countReq.result;
                 const btn = document.getElementById('sync-btn');
                 document.getElementById('sync-count').innerText = n;
-                btn.classList.toggle('hidden', n === 0);
+                if(btn) btn.classList.toggle('hidden', n === 0);
             };
         }
         
@@ -1054,6 +1178,24 @@
                 console.warn("Project sync failed", e);
             }
         }
+        
+        window.setReportFilter = (filter) => {
+            currentReportFilter = filter;
+            const btns = { 'photo': 'nav-log-photos', 'note': 'nav-log-notes', 'all': 'nav-log-all' };
+            for (const key in btns) {
+                const el = document.getElementById(btns[key]);
+                if(el) { el.classList.remove('active'); if(key===filter) el.classList.add('active'); }
+            }
+            const btnPhotos = document.getElementById('download-photos-btn');
+            const btnNotes = document.getElementById('download-notes-btn');
+            const btnRaw = document.getElementById('download-raw-photos-btn');
+            
+            if(btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
+            if(btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
+            if(btnRaw) btnRaw.classList.toggle('hidden', filter === 'note');
+            
+            renderReport(cachedItems);
+        };
 
         // --- INIT ---
         async function init() {
