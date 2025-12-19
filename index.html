@@ -321,6 +321,7 @@
                     <input type="text" id="modal-caption-title" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Title / Location (e.g. Girder 3)">
                     <textarea id="modal-caption-desc" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="Detailed Description..."></textarea>
                 </div>
+                <!-- AI Button Removed Here -->
                 <div class="flex gap-3">
                     <button onclick="window.cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg">Discard</button>
                     <button onclick="window.confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Save & Upload</button>
@@ -414,9 +415,7 @@
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        // Helper to sanitize project IDs for storage paths
-        function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
-
+        
         // --- WHITEBOARD FUNCTIONS ---
         window.openWhiteboard = () => {
              document.getElementById('whiteboard-modal').classList.remove('hidden');
@@ -1305,6 +1304,11 @@
                 setLoading(false);
             }
         };
+
+        // Helper to sanitize project IDs for storage paths
+        function sanitizeFilename(name) {
+            return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        }
 
         window.confirmUpload = async () => {
              if(!user) return alert("Error: No user found.");
