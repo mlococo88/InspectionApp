@@ -30,9 +30,6 @@
             70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
             100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
         }
-
-        /* Sketch Canvas */
-        canvas { touch-action: none; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -84,43 +81,30 @@
             </div>
         </div>
 
-        <!-- Action Buttons (Camera & Sketch) -->
+        <!-- Camera Button -->
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-                <span class="font-bold text-gray-700">Capture Data</span>
-                <span class="text-xs text-gray-400 uppercase tracking-wider">Inputs</span>
+                <span class="font-bold text-gray-700">Add Photo</span>
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Camera</span>
             </div>
-            <div class="p-6 grid grid-cols-2 gap-4">
-                <!-- Camera Button -->
-                <label for="camera-input" class="cursor-pointer group relative flex flex-col items-center">
-                    <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="p-8 flex flex-col items-center justify-center space-y-4">
+                <label for="camera-input" class="cursor-pointer group relative">
+                    <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-gray-600 mt-2">Add Photo</span>
                     <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
                 </label>
+                <p class="text-sm text-gray-500 font-medium" id="photo-capture-label">Tap to Capture Photo</p>
                 
-                <!-- Sketch Button -->
-                <button onclick="window.openWhiteboard()" class="cursor-pointer group relative flex flex-col items-center">
-                    <div class="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-purple-500 transition transform group-active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-bold text-gray-600 mt-2">Add Sketch</span>
-                </button>
-            </div>
-            
-            <div class="px-4 pb-4 flex justify-center">
-                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-xs font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-sm font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <span id="series-icon">🔄</span>
                     <span id="series-mode-text">Enable Photo Series</span>
                 </button>
             </div>
-             <div class="px-4 pb-2 text-center">
+            <div class="px-4 pb-4">
                 <div class="flex items-center gap-2 text-xs text-gray-500 justify-center">
                    <input type="checkbox" id="burn-text-toggle" checked class="rounded text-blue-600 focus:ring-blue-500">
                    <label for="burn-text-toggle">Overlay Data on Photo</label>
@@ -239,29 +223,6 @@
             <span class="text-[10px] font-bold mt-1">Raw Files</span>
         </button>
     </nav>
-
-    <!-- NEW: WHITEBOARD MODAL -->
-    <div id="whiteboard-modal" class="fixed inset-0 z-[60] bg-white hidden flex flex-col">
-        <!-- Whiteboard Header -->
-        <div class="bg-gray-100 p-3 border-b border-gray-300 flex justify-between items-center flex-none">
-            <div class="flex items-center gap-3">
-                <button onclick="window.closeWhiteboard()" class="text-gray-600 hover:text-gray-900 font-bold">✕ Cancel</button>
-                <div class="h-6 w-px bg-gray-300"></div>
-                <div class="flex gap-2">
-                    <input type="color" id="wb-color" value="#000000" class="h-8 w-8 cursor-pointer border border-gray-300 rounded">
-                    <input type="range" id="wb-size" min="1" max="10" value="2" class="w-20">
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="window.clearWhiteboard()" class="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 bg-white">Clear</button>
-                <button onclick="window.saveWhiteboard()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow">Save Sketch</button>
-            </div>
-        </div>
-        <!-- Whiteboard Canvas Area -->
-        <div class="flex-1 relative bg-white cursor-crosshair touch-none overflow-hidden" id="wb-wrapper">
-             <canvas id="wb-canvas" class="block"></canvas>
-        </div>
-    </div>
 
     <!-- NEW: IMAGE DETAIL MODAL -->
     <div id="image-detail-modal" class="fixed inset-0 z-[60] bg-black/95 hidden flex flex-col justify-center p-4">
@@ -397,113 +358,18 @@
         let knownProjects = new Set(JSON.parse(localStorage.getItem('fc_projects') || '["Bridge-001"]'));
         
         let pendingBlob = null, pendingBase64 = null;
-        let browserPath = `artifacts/${appId}/public/data/files`; 
+        let browserPath = `artifacts/${appId}/public/data/files`;
         let currentEditingItem = null, currentReportFilter = 'photo', currentSort = 'newest';
         let isSeriesMode = false, seriesPhotoQueue = [];
         let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
         let currentWeather = { temp: "", desc: "" };
         let currentHeading = null;
-        
-        // WHITEBOARD VARS
-        let wbCanvas, wbCtx, isDrawing = false, lastX = 0, lastY = 0;
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
-
-        // --- WHITEBOARD FUNCTIONS ---
-        window.openWhiteboard = () => {
-             document.getElementById('whiteboard-modal').classList.remove('hidden');
-             setTimeout(initWhiteboard, 100); // Allow render
-        };
-
-        window.closeWhiteboard = () => {
-             document.getElementById('whiteboard-modal').classList.add('hidden');
-        };
-
-        function initWhiteboard() {
-            wbCanvas = document.getElementById('wb-canvas');
-            const wrapper = document.getElementById('wb-wrapper');
-            wbCanvas.width = wrapper.offsetWidth;
-            wbCanvas.height = wrapper.offsetHeight;
-            wbCtx = wbCanvas.getContext('2d');
-            
-            // Set white background immediately
-            wbCtx.fillStyle = "#ffffff";
-            wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-            
-            wbCtx.lineJoin = 'round';
-            wbCtx.lineCap = 'round';
-            wbCtx.lineWidth = 2;
-            wbCtx.strokeStyle = '#000000';
-            
-            // Pointer Events (Unified)
-            wbCanvas.addEventListener('pointerdown', startDrawing);
-            wbCanvas.addEventListener('pointermove', draw);
-            wbCanvas.addEventListener('pointerup', stopDrawing);
-            wbCanvas.addEventListener('pointerout', stopDrawing);
-            
-            // UI Controls
-            document.getElementById('wb-color').onchange = (e) => wbCtx.strokeStyle = e.target.value;
-            document.getElementById('wb-size').oninput = (e) => wbCtx.lineWidth = e.target.value;
-        }
-
-        function startDrawing(e) {
-            isDrawing = true;
-            const rect = wbCanvas.getBoundingClientRect();
-            [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            e.preventDefault(); // Stop scrolling
-            const rect = wbCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            wbCtx.beginPath();
-            wbCtx.moveTo(lastX, lastY);
-            wbCtx.lineTo(x, y);
-            wbCtx.stroke();
-            [lastX, lastY] = [x, y];
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-        }
-        
-        window.clearWhiteboard = () => {
-             wbCtx.fillStyle = "#ffffff";
-             wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-        };
-        
-        window.saveWhiteboard = () => {
-            setLoading(true, "Processing Sketch...");
-            wbCanvas.toBlob((blob) => {
-                setLoading(false);
-                if(blob) {
-                    window.handleSketchSave(blob);
-                } else {
-                    alert("Error saving canvas");
-                }
-            }, 'image/png'); // PNG preserves quality before burning
-        };
-
-        window.handleSketchSave = (blob) => {
-            pendingBlob = blob;
-            window.closeWhiteboard();
-            
-            // Reset fields
-            document.getElementById('modal-img-preview').src = URL.createObjectURL(blob);
-            document.getElementById('modal-caption-title').value = "Field Sketch";
-            document.getElementById('modal-caption-desc').value = "";
-            document.querySelector('#caption-modal label').innerText = "Sketch Details";
-            document.getElementById('modal-save-btn').innerText = "Save Sketch";
-            document.getElementById('caption-modal').classList.remove('hidden');
-        };
 
         // --- COMPASS ---
         window.requestCompassPermission = async () => {
@@ -587,10 +453,6 @@
                     canvas.width = w;
                     canvas.height = h;
                     const ctx = canvas.getContext('2d');
-                    
-                    // Fill white background for sketches to handle transparency
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(0, 0, w, h);
 
                     // Draw original
                     ctx.drawImage(img, 0, 0);
@@ -992,7 +854,7 @@
         };
 
         function openBatchCaptionModal() {
-             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
+             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
              document.getElementById('modal-caption-title').value = "";
              document.getElementById('modal-caption-desc').value = "";
              document.querySelector('#caption-modal label').innerText = `Batch Caption for ${seriesPhotoQueue.length} Photos`;
@@ -1054,7 +916,6 @@
             document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active','text-blue-600')); document.getElementById(`nav-${id}`).classList.add('active','text-blue-600');
             if(id==='map') setTimeout(initMap, 200);
             if(id==='files') loadBrowser(browserPath);
-            if(id==='sketch') setTimeout(initSketchCanvas, 200); // Initialize canvas when tab is shown
         }
         window.updateProjectID = (v) => { currentProject=v; document.getElementById('project-header').innerText=`Project: ${v}`; loadReport(); };
         window.toggleNewProjectInput = () => document.getElementById('new-project-div').classList.toggle('hidden');
@@ -1247,7 +1108,7 @@
                 
                 // 4. Upload (Overwrite existing)
                 const processedRef = ref(storage, currentEditingItem.storagePath);
-                await uploadBytes(processedRef, newImageBlob); // Removed explicit contentType
+                await uploadBytes(processedRef, newImageBlob);
                 
                 // 5. Get fresh URL & Update Firestore
                 const newUrl = await getDownloadURL(processedRef);
@@ -1269,11 +1130,6 @@
                 setLoading(false);
             }
         };
-
-        // Helper to sanitize project IDs for storage paths
-        function sanitizeFilename(name) {
-            return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        }
 
         window.confirmUpload = async () => {
              if(!user) return alert("Error: No user found.");
@@ -1314,10 +1170,9 @@
                      const thisNum = maxNum + index + 1;
                      const photoIdStr = String(thisNum).padStart(3, '0');
                      
-                     // 1. Upload RAW - CHANGED to use flat structure
-                     const safeProject = sanitizeFilename(currentProject);
-                     const rawPath = `artifacts/${appId}/public/data/files/${safeProject}_raw_${item.id}.jpg`;
-                     await uploadBytes(ref(storage, rawPath), item.blob); // Removed explicit contentType
+                     // 1. Upload RAW
+                     const rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
+                     await uploadBytes(ref(storage, rawPath), item.blob);
 
                      // 2. Burn text if toggle is on
                      if (doBurn) {
@@ -1336,9 +1191,8 @@
                         finalBlob = await processImageWithOverlay(item.blob, meta);
                      }
 
-                     // Upload Processed - CHANGED to use flat structure
-                     const path = `artifacts/${appId}/public/data/files/${safeProject}_${item.id}.jpg`;
-                     const snap = await uploadBytes(ref(storage, path), finalBlob); // Removed explicit contentType
+                     const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
+                     const snap = await uploadBytes(ref(storage, path), finalBlob);
                      const url = await getDownloadURL(snap.ref);
                      
                      await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
@@ -1377,13 +1231,9 @@
 
         async function syncProjectList() {
             try {
-                // Changed from 'files' to 'images' or ensure consistency? 
-                // The previous prompt said to use 'files'.
                 const rootRef = ref(storage, `artifacts/${appId}/public/data/files`);
                 const res = await listAll(rootRef);
                 res.prefixes.forEach((folderRef) => {
-                    // folderRef.name is the sanitized project name.
-                    // We might want to store the mapping if possible, but for now just adding it.
                     addProjectToSet(folderRef.name);
                 });
             } catch (e) {
