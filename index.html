@@ -165,6 +165,9 @@
             <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
                 Download Photos (ZIP)
             </button>
+            <button id="download-raw-photos-btn" onclick="window.downloadAllRawPhotosZip()" class="text-xs bg-orange-600 text-white font-semibold hover:bg-orange-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+                Download Raw (ZIP)
+            </button>
              <button id="download-notes-btn" onclick="window.downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
                 Download Notes (TXT)
             </button>
@@ -933,8 +936,12 @@
             }
             const btnPhotos = document.getElementById('download-photos-btn');
             const btnNotes = document.getElementById('download-notes-btn');
+            const btnRaw = document.getElementById('download-raw-photos-btn');
+            
             if(btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
             if(btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
+            if(btnRaw) btnRaw.classList.toggle('hidden', filter === 'note');
+            
             renderReport(cachedItems);
         };
 
@@ -954,6 +961,25 @@
                 const c = await zip.generateAsync({type:"blob"});
                 saveAs(c, `${currentProject}_Photos.zip`);
             } catch(e) { console.error(e); alert("Zip Failed"); } finally { setLoading(false); }
+        };
+        
+        window.downloadAllRawPhotosZip = async () => {
+            const photos = cachedItems.filter(i => i.type === 'photo' && i.rawStoragePath);
+            if (photos.length === 0) return alert("No raw photos found for this project.");
+            setLoading(true, "Zipping Raw Files...");
+            try {
+                const zip = new JSZip();
+                const promises = photos.map(async p => {
+                     // Need to get download URL for raw path first
+                     const url = await getDownloadURL(ref(storage, p.rawStoragePath));
+                     const r = await fetch(url);
+                     const b = await r.blob();
+                     zip.file(`${p.projectId}_${p.id}_RAW.jpg`, b);
+                });
+                await Promise.all(promises);
+                const c = await zip.generateAsync({type:"blob"});
+                saveAs(c, `${currentProject}_Raw_Photos.zip`);
+            } catch(e) { console.error(e); alert("Raw Zip Failed: " + e.message); } finally { setLoading(false); }
         };
 
         // NEW: Download Single Photo
