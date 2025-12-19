@@ -84,30 +84,43 @@
             </div>
         </div>
 
-        <!-- Camera Button -->
+        <!-- Action Buttons (Camera & Sketch) -->
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-                <span class="font-bold text-gray-700">Add Photo</span>
-                <span class="text-xs text-gray-400 uppercase tracking-wider">Camera</span>
+                <span class="font-bold text-gray-700">Capture Data</span>
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Inputs</span>
             </div>
-            <div class="p-8 flex flex-col items-center justify-center space-y-4">
-                <label for="camera-input" class="cursor-pointer group relative">
-                    <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="p-6 grid grid-cols-2 gap-4">
+                <!-- Camera Button -->
+                <label for="camera-input" class="cursor-pointer group relative flex flex-col items-center">
+                    <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
+                    <span class="text-xs font-bold text-gray-600 mt-2">Add Photo</span>
                     <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
                 </label>
-                <p class="text-sm text-gray-500 font-medium" id="photo-capture-label">Tap to Capture Photo</p>
                 
-                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-sm font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <!-- Sketch Button -->
+                <button onclick="window.openWhiteboard()" class="cursor-pointer group relative flex flex-col items-center">
+                    <div class="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-purple-500 transition transform group-active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </div>
+                    <span class="text-xs font-bold text-gray-600 mt-2">Add Sketch</span>
+                </button>
+            </div>
+            
+            <div class="px-4 pb-4 flex justify-center">
+                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-xs font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <span id="series-icon">🔄</span>
                     <span id="series-mode-text">Enable Photo Series</span>
                 </button>
             </div>
-            <div class="px-4 pb-4">
+             <div class="px-4 pb-2 text-center">
                 <div class="flex items-center gap-2 text-xs text-gray-500 justify-center">
                    <input type="checkbox" id="burn-text-toggle" checked class="rounded text-blue-600 focus:ring-blue-500">
                    <label for="burn-text-toggle">Overlay Data on Photo</label>
@@ -130,28 +143,6 @@
             </div>
         </div>
 
-    </div>
-    
-    <!-- TAB 5: SKETCH (Refactored to isolate flex) -->
-    <div id="tab-sketch" class="tab-content p-4 max-w-4xl mx-auto h-full">
-        <div class="flex flex-col h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden" style="min-height: 70vh;">
-            <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-                <span class="font-bold text-gray-700">Field Sketch</span>
-                <div class="flex gap-2 items-center">
-                    <input type="color" id="sketch-color" value="#000000" class="h-6 w-6 cursor-pointer border border-gray-300 rounded">
-                    <input type="range" id="sketch-size" min="1" max="10" value="2" class="w-20">
-                    <button onclick="window.clearSketch()" class="px-3 py-1 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 bg-white">Clear</button>
-                </div>
-            </div>
-            <div class="relative flex-1 bg-white cursor-crosshair touch-none border-b border-gray-200" id="sketch-wrapper">
-                <canvas id="sketch-canvas" class="w-full h-full"></canvas>
-            </div>
-            <div class="p-4 bg-gray-50 space-y-3">
-                <input type="text" id="sketch-title" class="w-full border border-gray-300 rounded-lg p-2 text-sm" placeholder="Sketch Title / Location">
-                <textarea id="sketch-desc" class="w-full border border-gray-300 rounded-lg p-2 text-sm h-16 resize-none" placeholder="Description of details..."></textarea>
-                <button onclick="window.saveSketch()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Sketch & Burn Data</button>
-            </div>
-        </div>
     </div>
 
     <!-- TAB 2: REPORT LOG (FIRESTORE) -->
@@ -235,10 +226,6 @@
             <span class="text-xl">📷</span>
             <span class="text-[10px] font-bold mt-1">Inspect</span>
         </button>
-        <button onclick="window.switchTab('sketch')" id="nav-sketch" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
-            <span class="text-xl">✏️</span>
-            <span class="text-[10px] font-bold mt-1">Sketch</span>
-        </button>
         <button onclick="window.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
             <span class="text-xl">📋</span>
             <span class="text-[10px] font-bold mt-1">Report</span>
@@ -252,6 +239,29 @@
             <span class="text-[10px] font-bold mt-1">Raw Files</span>
         </button>
     </nav>
+
+    <!-- NEW: WHITEBOARD MODAL -->
+    <div id="whiteboard-modal" class="fixed inset-0 z-[60] bg-white hidden flex flex-col">
+        <!-- Whiteboard Header -->
+        <div class="bg-gray-100 p-3 border-b border-gray-300 flex justify-between items-center flex-none">
+            <div class="flex items-center gap-3">
+                <button onclick="window.closeWhiteboard()" class="text-gray-600 hover:text-gray-900 font-bold">✕ Cancel</button>
+                <div class="h-6 w-px bg-gray-300"></div>
+                <div class="flex gap-2">
+                    <input type="color" id="wb-color" value="#000000" class="h-8 w-8 cursor-pointer border border-gray-300 rounded">
+                    <input type="range" id="wb-size" min="1" max="10" value="2" class="w-20">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.clearWhiteboard()" class="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 bg-white">Clear</button>
+                <button onclick="window.saveWhiteboard()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow">Save Sketch</button>
+            </div>
+        </div>
+        <!-- Whiteboard Canvas Area -->
+        <div class="flex-1 relative bg-white cursor-crosshair touch-none overflow-hidden" id="wb-wrapper">
+             <canvas id="wb-canvas" class="block"></canvas>
+        </div>
+    </div>
 
     <!-- NEW: IMAGE DETAIL MODAL -->
     <div id="image-detail-modal" class="fixed inset-0 z-[60] bg-black/95 hidden flex flex-col justify-center p-4">
@@ -387,7 +397,6 @@
         let knownProjects = new Set(JSON.parse(localStorage.getItem('fc_projects') || '["Bridge-001"]'));
         
         let pendingBlob = null, pendingBase64 = null;
-        // CHANGED: Use 'files' collection to resolve permission error & ensure consistent path
         let browserPath = `artifacts/${appId}/public/data/files`; 
         let currentEditingItem = null, currentReportFilter = 'photo', currentSort = 'newest';
         let isSeriesMode = false, seriesPhotoQueue = [];
@@ -395,86 +404,70 @@
         let currentWeather = { temp: "", desc: "" };
         let currentHeading = null;
         
-        // SKETCH VARS
-        let sketchCanvas, sketchCtx, isDrawing = false, lastX = 0, lastY = 0;
+        // WHITEBOARD VARS
+        let wbCanvas, wbCtx, isDrawing = false, lastX = 0, lastY = 0;
 
         // -- CORE FUNCTIONS MOVED TO TOP --
         function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
         function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
         function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        
-        // Helper to sanitize project IDs for storage paths
-        function sanitizeFilename(name) {
-            return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        }
+        function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
 
-        // --- SKETCH FUNCTIONS ---
-        function initSketchCanvas() {
-            sketchCanvas = document.getElementById('sketch-canvas');
-            const wrapper = document.getElementById('sketch-wrapper');
-            sketchCanvas.width = wrapper.offsetWidth;
-            sketchCanvas.height = wrapper.offsetHeight;
-            sketchCtx = sketchCanvas.getContext('2d');
-            sketchCtx.lineJoin = 'round';
-            sketchCtx.lineCap = 'round';
-            sketchCtx.lineWidth = 2;
-            sketchCtx.strokeStyle = '#000000';
+        // --- WHITEBOARD FUNCTIONS ---
+        window.openWhiteboard = () => {
+             document.getElementById('whiteboard-modal').classList.remove('hidden');
+             setTimeout(initWhiteboard, 100); // Allow render
+        };
+
+        window.closeWhiteboard = () => {
+             document.getElementById('whiteboard-modal').classList.add('hidden');
+        };
+
+        function initWhiteboard() {
+            wbCanvas = document.getElementById('wb-canvas');
+            const wrapper = document.getElementById('wb-wrapper');
+            wbCanvas.width = wrapper.offsetWidth;
+            wbCanvas.height = wrapper.offsetHeight;
+            wbCtx = wbCanvas.getContext('2d');
             
-            // Mouse Events
-            sketchCanvas.addEventListener('mousedown', startDrawing);
-            sketchCanvas.addEventListener('mousemove', draw);
-            sketchCanvas.addEventListener('mouseup', stopDrawing);
-            sketchCanvas.addEventListener('mouseout', stopDrawing);
+            // Set white background immediately
+            wbCtx.fillStyle = "#ffffff";
+            wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
             
-            // Touch Events
-            sketchCanvas.addEventListener('touchstart', (e) => {
-                e.preventDefault(); 
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousedown', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                sketchCanvas.dispatchEvent(mouseEvent);
-            }, {passive: false});
+            wbCtx.lineJoin = 'round';
+            wbCtx.lineCap = 'round';
+            wbCtx.lineWidth = 2;
+            wbCtx.strokeStyle = '#000000';
             
-            sketchCanvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousemove', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                sketchCanvas.dispatchEvent(mouseEvent);
-            }, {passive: false});
+            // Pointer Events (Unified)
+            wbCanvas.addEventListener('pointerdown', startDrawing);
+            wbCanvas.addEventListener('pointermove', draw);
+            wbCanvas.addEventListener('pointerup', stopDrawing);
+            wbCanvas.addEventListener('pointerout', stopDrawing);
             
-            sketchCanvas.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                const mouseEvent = new MouseEvent('mouseup', {});
-                sketchCanvas.dispatchEvent(mouseEvent);
-            });
-            
-            // Color & Size
-            document.getElementById('sketch-color').onchange = (e) => sketchCtx.strokeStyle = e.target.value;
-            document.getElementById('sketch-size').oninput = (e) => sketchCtx.lineWidth = e.target.value;
+            // UI Controls
+            document.getElementById('wb-color').onchange = (e) => wbCtx.strokeStyle = e.target.value;
+            document.getElementById('wb-size').oninput = (e) => wbCtx.lineWidth = e.target.value;
         }
 
         function startDrawing(e) {
             isDrawing = true;
-            const rect = sketchCanvas.getBoundingClientRect();
+            const rect = wbCanvas.getBoundingClientRect();
             [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
         }
 
         function draw(e) {
             if (!isDrawing) return;
-            const rect = sketchCanvas.getBoundingClientRect();
+            e.preventDefault(); // Stop scrolling
+            const rect = wbCanvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            sketchCtx.beginPath();
-            sketchCtx.moveTo(lastX, lastY);
-            sketchCtx.lineTo(x, y);
-            sketchCtx.stroke();
+            wbCtx.beginPath();
+            wbCtx.moveTo(lastX, lastY);
+            wbCtx.lineTo(x, y);
+            wbCtx.stroke();
             [lastX, lastY] = [x, y];
         }
 
@@ -482,90 +475,34 @@
             isDrawing = false;
         }
         
-        window.clearSketch = () => {
-             sketchCtx.fillStyle = "#ffffff";
-             sketchCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+        window.clearWhiteboard = () => {
+             wbCtx.fillStyle = "#ffffff";
+             wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
         };
         
-        window.saveSketch = async () => {
-            if(!user) return alert("No user");
-            const title = document.getElementById('sketch-title').value.trim();
-            const desc = document.getElementById('sketch-desc').value.trim();
-            
-            setLoading(true, "Saving Sketch...");
-            
-            // Get Blob from Canvas
-            sketchCanvas.toBlob(async (blob) => {
-                if(!blob) { setLoading(false); return alert("Canvas empty?"); }
-                
-                try {
-                    // Prep Data
-                    const id = Date.now().toString();
-                    
-                    // We treat this like a photo for the overlay logic
-                    let caption = desc;
-                    if(title) caption = `${title} - ${desc}`;
-                    
-                    // Calculate next number
-                    const existingPhotos = cachedItems.filter(i => i.type === 'photo');
-                    const maxNum = existingPhotos.reduce((max, item) => Math.max(max, item.photoNumber || 0), 0);
-                    const thisNum = maxNum + 1;
-                    const photoIdStr = String(thisNum).padStart(3, '0');
-
-                    const meta = {
-                        projectId: currentProject,
-                        id: id,
-                        timestamp: Date.now(),
-                        lat: currentLocation?.lat,
-                        lng: currentLocation?.lng,
-                        weather: currentWeather,
-                        caption: caption,
-                        photoNumber: photoIdStr,
-                        heading: currentHeading
-                    };
-
-                    // Burn Metadata
-                    const finalBlob = await processImageWithOverlay(blob, meta);
-                    
-                    // Upload - CHANGED to 'files' collection & Use currentProject directly
-                    // Use flat structure: ProjectName_sketch_ID.jpg
-                    const safeProject = sanitizeFilename(currentProject);
-                    const path = `artifacts/${appId}/public/data/files/${safeProject}_sketch_${id}.jpg`;
-                    const snap = await uploadBytes(ref(storage, path), finalBlob);
-                    const url = await getDownloadURL(snap.ref);
-                    
-                    // Save Doc
-                    await setDoc(doc(db, `artifacts/${appId}/public/data/images`, id), {
-                        id: id, 
-                        type:'photo', // Treat as photo for report compatibility
-                        subtype: 'sketch',
-                        projectId:currentProject, 
-                        url, 
-                        storagePath:path, 
-                        caption: caption, 
-                        title: title, 
-                        detailedDesc: desc, 
-                        timestamp:Date.now(), 
-                        dateString:new Date().toLocaleString(), 
-                        lat:currentLocation?.lat || null, 
-                        lng:currentLocation?.lng || null, 
-                        photoNumber: thisNum, 
-                        heading: currentHeading
-                    });
-                    
-                    addProjectToSet(currentProject);
-                    window.clearSketch();
-                    document.getElementById('sketch-title').value = "";
-                    document.getElementById('sketch-desc').value = "";
-                    switchTab('report');
-                    showToast("Sketch Saved!");
-                } catch(e) {
-                    console.error(e);
-                    alert("Sketch Save Failed: " + e.message);
-                } finally {
-                    setLoading(false);
+        window.saveWhiteboard = () => {
+            setLoading(true, "Processing Sketch...");
+            wbCanvas.toBlob((blob) => {
+                setLoading(false);
+                if(blob) {
+                    window.handleSketchSave(blob);
+                } else {
+                    alert("Error saving canvas");
                 }
-            }, 'image/jpeg', 0.95);
+            }, 'image/png'); // PNG preserves quality before burning
+        };
+
+        window.handleSketchSave = (blob) => {
+            pendingBlob = blob;
+            window.closeWhiteboard();
+            
+            // Reset fields
+            document.getElementById('modal-img-preview').src = URL.createObjectURL(blob);
+            document.getElementById('modal-caption-title').value = "Field Sketch";
+            document.getElementById('modal-caption-desc').value = "";
+            document.querySelector('#caption-modal label').innerText = "Sketch Details";
+            document.getElementById('modal-save-btn').innerText = "Save Sketch";
+            document.getElementById('caption-modal').classList.remove('hidden');
         };
 
         // --- COMPASS ---
@@ -1310,7 +1247,7 @@
                 
                 // 4. Upload (Overwrite existing)
                 const processedRef = ref(storage, currentEditingItem.storagePath);
-                await uploadBytes(processedRef, newImageBlob);
+                await uploadBytes(processedRef, newImageBlob); // Removed explicit contentType
                 
                 // 5. Get fresh URL & Update Firestore
                 const newUrl = await getDownloadURL(processedRef);
@@ -1332,6 +1269,11 @@
                 setLoading(false);
             }
         };
+
+        // Helper to sanitize project IDs for storage paths
+        function sanitizeFilename(name) {
+            return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        }
 
         window.confirmUpload = async () => {
              if(!user) return alert("Error: No user found.");
@@ -1372,7 +1314,7 @@
                      const thisNum = maxNum + index + 1;
                      const photoIdStr = String(thisNum).padStart(3, '0');
                      
-                     // 1. Upload RAW - CHANGED to 'files' collection
+                     // 1. Upload RAW - CHANGED to use flat structure
                      const safeProject = sanitizeFilename(currentProject);
                      const rawPath = `artifacts/${appId}/public/data/files/${safeProject}_raw_${item.id}.jpg`;
                      await uploadBytes(ref(storage, rawPath), item.blob); // Removed explicit contentType
@@ -1394,7 +1336,7 @@
                         finalBlob = await processImageWithOverlay(item.blob, meta);
                      }
 
-                     // Upload Processed - CHANGED to 'files' collection
+                     // Upload Processed - CHANGED to use flat structure
                      const path = `artifacts/${appId}/public/data/files/${safeProject}_${item.id}.jpg`;
                      const snap = await uploadBytes(ref(storage, path), finalBlob); // Removed explicit contentType
                      const url = await getDownloadURL(snap.ref);
@@ -1435,9 +1377,13 @@
 
         async function syncProjectList() {
             try {
+                // Changed from 'files' to 'images' or ensure consistency? 
+                // The previous prompt said to use 'files'.
                 const rootRef = ref(storage, `artifacts/${appId}/public/data/files`);
                 const res = await listAll(rootRef);
                 res.prefixes.forEach((folderRef) => {
+                    // folderRef.name is the sanitized project name.
+                    // We might want to store the mapping if possible, but for now just adding it.
                     addProjectToSet(folderRef.name);
                 });
             } catch (e) {
