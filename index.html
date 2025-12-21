@@ -598,7 +598,10 @@
                     if(user) {
                         this.loadData();
                         this.refreshFiles();
-                        this.syncProjectList(); // Check storage for other projects
+                        this.syncProjectList(); // Check storage & DB for projects
+                        
+                        // NEW: Listen to shared project list
+                        this.listenToSharedProjects();
                     }
                 });
 
@@ -610,6 +613,18 @@
                 } catch(e) { console.error("Auth Fail", e); }
 
                 this.updateProjectUI();
+            }
+            
+            // NEW: Shared Project List Listener
+            listenToSharedProjects() {
+                const q = query(collection(state.db, `artifacts/${appId}/public/data/projects`), orderBy('name'));
+                onSnapshot(q, (snap) => {
+                    snap.forEach(d => {
+                        state.projects.add(d.data().name);
+                    });
+                    localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                    this.updateProjectUI(); // Refresh dropdown
+                });
             }
 
             // --- SENSORS ---
@@ -692,7 +707,17 @@
                 const m = $('settings-modal');
                 m.classList.toggle('hidden');
                 if(!m.classList.contains('hidden')) {
-                    const sel = $('project-select');
+                    this.updateProjectUI(); // Ensure dropdown is fresh
+                }
+            }
+
+            updateProjectUI() {
+                // Update Header
+                $('header-project-name').innerText = state.project;
+                
+                // Update Settings Dropdown
+                const sel = $('project-select');
+                if(sel) {
                     sel.innerHTML = '';
                     Array.from(state.projects).sort().forEach(p => {
                         const opt = document.createElement('option');
@@ -703,13 +728,24 @@
             }
 
             // --- PROJECT LOGIC ---
-            createProject(nameOverride = null) {
+            async createProject(nameOverride = null) {
                 let n = nameOverride;
                 if (!n) n = $('new-proj-name').value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
                 
                 if(n) {
                     state.projects.add(n);
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                    
+                    // SAVE TO FIRESTORE SHARED LIST
+                    try {
+                        const projRef = doc(state.db, `artifacts/${appId}/public/data/projects`, n);
+                        await setDoc(projRef, {
+                            name: n,
+                            createdAt: Date.now(),
+                            createdBy: state.user.uid
+                        });
+                    } catch(e) { console.warn("Could not sync project list to cloud", e); }
+
                     this.switchProject(n);
                     if(!nameOverride) $('new-proj-name').value = '';
                 }
@@ -735,30 +771,28 @@
                 this.toggleSettings(); // Close modal
 
                 try {
-                    // 1. Delete Firestore Documents
-                    // We must fetch them first to get their IDs
+                    // 1. Delete Firestore Documents (Photos)
                     const q = query(collection(state.db, `artifacts/${appId}/public/data/images`), where("projectId", "==", p));
                     const snap = await getDocs(q);
-                    
                     const docDeletes = snap.docs.map(d => deleteDoc(d.ref));
                     await Promise.all(docDeletes);
 
-                    // 2. Delete Storage Files
-                    // Listing files in the project folder
+                    // 2. Delete Project Metadata Doc
+                    await deleteDoc(doc(state.db, `artifacts/${appId}/public/data/projects`, p));
+
+                    // 3. Delete Storage Files
                     const folderRef = ref(state.storage, `artifacts/${appId}/public/data/files/${p}`);
                     try {
                         const list = await listAll(folderRef);
                         const fileDeletes = list.items.map(item => deleteObject(item));
                         await Promise.all(fileDeletes);
-                    } catch(e) {
-                        console.warn("Storage folder likely empty or not found:", e);
-                    }
+                    } catch(e) { console.warn("Storage folder clean issue", e); }
 
-                    // 3. Update Local State
+                    // 4. Update Local State
                     state.projects.delete(p);
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
 
-                    // 4. Switch to another project or create default
+                    // 5. Switch to another project or create default
                     if(state.projects.size > 0) {
                         const next = Array.from(state.projects)[0];
                         this.switchProject(next);
@@ -776,16 +810,16 @@
                 }
             }
 
-            updateProjectUI() {
-                $('header-project-name').innerText = state.project;
-            }
-
             async syncProjectList() {
-                // Look at storage folders to find other projects not in local cache
+                // Legacy: Check storage folders too (backwards compatibility)
                 try {
                     const res = await listAll(ref(state.storage, `artifacts/${appId}/public/data/files`));
-                    res.prefixes.forEach(p => state.projects.add(p.name));
-                    localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                    res.prefixes.forEach(p => {
+                        if(!state.projects.has(p.name)) {
+                             // Adopt existing folders into new system
+                             this.createProject(p.name); 
+                        }
+                    });
                 } catch(e) {}
             }
 
