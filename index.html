@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Field Notes Pro</title>
+    <title>Field Cam</title>
     
     <!-- Styles & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,10 +39,13 @@
     <!-- HEADER -->
     <header class="bg-white shadow-sm z-30 px-4 py-3 flex justify-between items-center border-b border-slate-200 flex-none">
         <div class="flex flex-col">
-            <h1 class="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                <i data-lucide="camera" class="w-5 h-5 text-blue-600"></i> Field Notes <span class="text-blue-600">Pro</span>
-            </h1>
-            <div onclick="window.app.toggleSettings()" class="text-xs text-slate-500 font-medium cursor-pointer flex items-center gap-1 hover:text-blue-600 transition">
+            <div>
+                <h1 class="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2 leading-none">
+                    <i data-lucide="camera" class="w-5 h-5 text-blue-600"></i> Field Cam
+                </h1>
+                <p class="text-[10px] text-slate-400 font-medium ml-7">by Mario LoCoco</p>
+            </div>
+            <div onclick="window.app.toggleSettings()" class="text-xs text-slate-500 font-medium cursor-pointer flex items-center gap-1 hover:text-blue-600 transition mt-1">
                 <span id="header-project-name">Select Project</span>
                 <i data-lucide="chevron-down" class="w-3 h-3"></i>
             </div>
@@ -522,9 +525,9 @@
                 lucide.createIcons();
                 
                 // Connection Listeners
-                window.addEventListener('online', () => this.updateConnectionStatus());
-                window.addEventListener('offline', () => this.updateConnectionStatus());
-                this.updateConnectionStatus(); // Initial check
+                window.addEventListener('online', () => this.updateConnectionStatus(true));
+                window.addEventListener('offline', () => this.updateConnectionStatus(false));
+                this.updateConnectionStatus(navigator.onLine);
             }
             
             toggleForceOffline() {
