@@ -2,1549 +2,1820 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Field Notes by ML</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Field Notes Pro</title>
     
-    <!-- Leaflet (Map Library) -->
+    <!-- Styles & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Exif-JS for Metadata Extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <!-- HEIC to JPEG Converter -->
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; padding-bottom: 80px; }
-        .tab-content { display: none; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f1f5f9; }
+        .tab-content { display: none; height: 100%; overflow-y: auto; }
         .tab-content.active { display: block; }
-        .nav-item.active { color: #2563eb; }
-        .report-nav-item.active { border-color: #2563eb; color: #2563eb; background-color: #ebf5ff; }
-        #map-container { height: 70vh; width: 100%; border-radius: 0.5rem; z-index: 1; }
-        
-        /* Series Mode Active State */
-        #series-mode-btn.active {
-            background-color: #f59e0b;
-            color: #ffffff;
-            border-color: #d97706;
-            animation: pulse-orange 2s infinite;
-        }
-        @keyframes pulse-orange {
-            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-        }
-
-        /* Sketch Canvas */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #map-container { height: 100%; width: 100%; z-index: 1; }
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         canvas { touch-action: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-slate-800 h-[100dvh] flex flex-col overflow-hidden">
 
-    <!-- TOP HEADER -->
-    <header class="bg-white shadow-sm sticky top-0 z-20 px-4 py-3 flex justify-between items-center border-b border-gray-200">
-        <div>
-            <h1 class="text-lg font-bold text-blue-800">Field Notes <span class="text-gray-800">by ML</span></h1>
-            <p class="text-xs text-gray-500 cursor-pointer hover:text-blue-600" onclick="document.getElementById('settings-modal').classList.remove('hidden')" id="project-header">Project: Bridge-001</p>
+    <!-- HEADER -->
+    <header class="bg-white shadow-sm z-30 px-4 py-3 flex justify-between items-center border-b border-slate-200 flex-none">
+        <div class="flex flex-col">
+            <h1 class="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                <i data-lucide="camera" class="w-5 h-5 text-blue-600"></i> Field Notes <span class="text-blue-600">Pro</span>
+            </h1>
+            <div onclick="window.app.toggleSettings()" class="text-xs text-slate-500 font-medium cursor-pointer flex items-center gap-1 hover:text-blue-600 transition">
+                <span id="header-project-name">Select Project</span>
+                <i data-lucide="chevron-down" class="w-3 h-3"></i>
+            </div>
         </div>
-        <div class="flex items-center gap-2">
-            <div id="status-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
-            <button onclick="document.getElementById('settings-modal').classList.remove('hidden')" class="p-2 text-gray-500 hover:text-blue-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+        <div class="flex items-center gap-3">
+            <div id="outbox-badge" class="hidden flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer" onclick="window.app.syncOutbox()">
+                <i data-lucide="upload-cloud" class="w-3 h-3"></i> <span id="outbox-count">0</span>
+            </div>
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-slate-300 ring-2 ring-white shadow-sm transition-colors duration-300"></div>
+            <button onclick="window.app.toggleSettings()" class="p-2 text-slate-400 hover:text-blue-600 transition bg-slate-50 rounded-full">
+                <i data-lucide="settings" class="w-5 h-5"></i>
             </button>
         </div>
     </header>
 
-    <!-- TAB 1: INSPECT (CAMERA & NOTES) -->
-    <div id="tab-inspect" class="tab-content active p-4 max-w-lg mx-auto space-y-6">
-        
-        <!-- LIVE SENSORS DASHBOARD -->
-        <div class="grid grid-cols-3 gap-2">
-            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
-                    GPS
-                </span>
-                <div id="gps-status" class="text-[10px] font-mono text-orange-500 font-bold truncate w-full">Acquiring...</div>
-            </div>
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 relative overflow-hidden bg-slate-100">
+
+        <!-- TAB 1: INSPECT -->
+        <div id="tab-inspect" class="tab-content active p-4 space-y-4">
             
-            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50" onclick="window.requestCompassPermission()">
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clip-rule="evenodd" /></svg>
-                    Compass
-                </span>
-                <div id="compass-status" class="text-[10px] font-mono text-gray-400 font-bold truncate w-full">Tap to Enable</div>
+            <!-- Sensor Dashboard -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
+                    <div id="gps-val" class="text-xs font-mono font-bold text-slate-600 truncate w-full">Waiting...</div>
+                </div>
+                <div onclick="window.app.requestCompass()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Heading</div>
+                    <div class="flex items-center gap-1 justify-center w-full">
+                        <svg id="compass-icon" class="w-4 h-4 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" class="text-slate-200 stroke-slate-200" />
+                            <path d="M12 2L15 12H9L12 2Z" fill="#ef4444" stroke="none" />
+                            <path d="M12 22L9 12H15L12 22Z" fill="#94a3b8" stroke="none" />
+                        </svg>
+                        <span id="compass-val" class="text-xs font-mono font-bold text-slate-600">Off</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wx</div>
+                    <div id="wx-val" class="text-xs font-medium text-slate-600 truncate w-full">--</div>
+                </div>
             </div>
 
-            <div class="bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
-                    Weather
-                </span>
-                <div id="weather-status" class="text-[10px] font-medium text-gray-400 truncate w-full">Waiting...</div>
-            </div>
-        </div>
+            <!-- Main Actions -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold text-slate-700">Capture</h2>
+                    <div class="flex items-center gap-2">
+                         <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+                            <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300">
+                            <span>Overlay Data</span>
+                        </label>
+                    </div>
+                </div>
 
-        <!-- Action Buttons (Camera & Sketch) -->
-        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-            <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-                <span class="font-bold text-gray-700">Capture Data</span>
-                <span class="text-xs text-gray-400 uppercase tracking-wider">Inputs</span>
-            </div>
-            <div class="p-6 grid grid-cols-2 gap-4">
-                <!-- Camera Button -->
-                <label for="camera-input" class="cursor-pointer group relative flex flex-col items-center">
-                    <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition transform group-active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- 1. Live Photo Container -->
+                    <div class="flex flex-col gap-2">
+                        <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 rounded-xl p-4 border-2 border-dashed border-blue-200 transition active:scale-95 h-28">
+                            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                                <i data-lucide="camera" class="w-5 h-5"></i>
+                            </div>
+                            <span class="text-xs font-bold text-blue-900">Live Photo</span>
+                            <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+                        </label>
+                        <button id="series-btn" onclick="window.app.toggleSeriesMode()" class="w-full py-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition bg-white text-slate-500 border-slate-200 hover:bg-slate-50">
+                            <i data-lucide="layers" class="w-3 h-3"></i> <span id="series-text">Series Mode</span>
+                        </button>
                     </div>
-                    <span class="text-xs font-bold text-gray-600 mt-2">Add Photo</span>
-                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                </label>
-                
-                <!-- Sketch Button -->
-                <button onclick="window.openWhiteboard()" class="cursor-pointer group relative flex flex-col items-center">
-                    <div class="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center shadow-xl group-hover:bg-purple-500 transition transform group-active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-bold text-gray-600 mt-2">Add Sketch</span>
-                </button>
-            </div>
-            
-            <div class="px-4 pb-4 flex justify-center">
-                <button id="series-mode-btn" onclick="window.toggleSeriesMode()" class="px-6 py-2 rounded-full text-xs font-bold shadow transition border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                    <span id="series-icon">🔄</span>
-                    <span id="series-mode-text">Enable Photo Series</span>
-                </button>
-            </div>
-             <div class="px-4 pb-2 text-center">
-                <div class="flex items-center gap-2 text-xs text-gray-500 justify-center">
-                   <input type="checkbox" id="burn-text-toggle" checked class="rounded text-blue-600 focus:ring-blue-500">
-                   <label for="burn-text-toggle">Overlay Data on Photo</label>
+
+                    <!-- 2. Gallery Upload -->
+                    <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-indigo-50 hover:bg-indigo-100 rounded-xl p-4 border-2 border-dashed border-indigo-200 transition active:scale-95 h-28">
+                        <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                            <i data-lucide="image" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-xs font-bold text-indigo-900">Gallery</span>
+                        <input type="file" id="gallery-input" accept="image/*" class="hidden">
+                    </label>
+
+                    <!-- 3. Sketch -->
+                    <button onclick="window.app.openSketch()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-purple-50 hover:bg-purple-100 rounded-xl p-4 border-2 border-dashed border-purple-200 transition active:scale-95 h-28">
+                        <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                            <i data-lucide="pen-tool" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-xs font-bold text-purple-900">Sketch</span>
+                    </button>
+
+                    <!-- 4. Notes (Triggers Modal) -->
+                    <button onclick="window.app.openNotes()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-emerald-50 hover:bg-emerald-100 rounded-xl p-4 border-2 border-dashed border-emerald-200 transition active:scale-95 h-28">
+                        <div class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-900">Notes</span>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- New Persistent Note Input -->
-        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-            <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-                <span class="font-bold text-gray-700">Quick Observation Note</span>
-                <span class="text-xs text-gray-400 uppercase tracking-wider">TEXT</span>
-            </div>
-            <div class="p-4 space-y-3">
-                <input type="text" id="quick-note-title" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Title / Location (e.g. North Abutment)">
-                <textarea id="quick-note-desc" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none" placeholder="Detailed Description..."></textarea>
-                <button onclick="window.confirmQuickNote()" id="quick-note-save-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg shadow transition">
-                    Save Note
-                </button>
-            </div>
-        </div>
+        <!-- TAB 2: REPORT -->
+        <div id="tab-report" class="tab-content h-full bg-white">
+            <div class="flex flex-col h-full">
+                <!-- Header with Report Button -->
+                <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 flex-none">
+                    <h2 class="font-bold text-slate-800">Project Log</h2>
+                    <button onclick="window.app.genPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 active:scale-95 transition">
+                        <i data-lucide="file-text" class="w-3 h-3"></i> Generate Report
+                    </button>
+                </div>
 
-    </div>
+                <!-- Toolbar -->
+                <div class="p-3 border-b border-slate-200 flex gap-2 overflow-x-auto no-scrollbar bg-white sticky top-0 z-10 flex-none">
+                    <div class="flex-1 relative">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="search-input" onkeyup="window.app.filterFeed()" placeholder="Search..." class="w-full pl-9 pr-3 py-2 bg-slate-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex bg-slate-100 rounded-lg p-1">
+                        <button onclick="window.app.setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded text-xs font-bold transition bg-white shadow text-slate-800">All</button>
+                        <button onclick="window.app.setFilter('photo')" id="filter-photo" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Photos</button>
+                        <button onclick="window.app.setFilter('note')" id="filter-note" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Notes</button>
+                    </div>
+                </div>
 
-    <!-- TAB 2: REPORT LOG (FIRESTORE) -->
-    <div id="tab-report" class="tab-content p-4 max-w-2xl mx-auto">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-800">Inspection Log</h2>
-            <!-- NEW REPORT BUTTON -->
-            <button onclick="window.generateReportPDF()" class="text-sm bg-red-600 text-white font-semibold hover:bg-red-700 px-3 py-1.5 rounded-lg shadow transition">
-                Generate Report PDF
-            </button>
-        </div>
-        
-        <!-- Filter/Search/Sort -->
-        <div class="mb-4 space-y-2">
-            <div class="flex gap-2">
-                <input type="text" id="report-search" placeholder="Search logs..." class="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <select id="sort-select" onchange="window.setSortOrder(this.value)" class="bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm">
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                </select>
-            </div>
-        </div>
+                <!-- Feed -->
+                <div id="report-feed" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 pb-20">
+                    <!-- Dynamic Content -->
+                </div>
 
-        <!-- Report Sub-Navigation -->
-        <div class="flex border-b border-gray-300 mb-4">
-            <button id="nav-log-photos" class="report-nav-item active px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('photo')">Photo Log</button>
-            <button id="nav-log-notes" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('note')">Notes Log</button>
-            <button id="nav-log-all" class="report-nav-item px-4 py-2 text-sm font-semibold border-b-2 border-transparent" onclick="window.setReportFilter('all')">All Entries</button>
-        </div>
-
-        <!-- Photo Log Controls -->
-        <div id="photo-log-controls" class="mb-4 flex justify-end gap-2 flex-wrap">
-            <button onclick="window.generateCSVReport()" class="text-xs bg-green-600 text-white font-semibold hover:bg-green-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                Export Data (CSV)
-            </button>
-            <button id="download-photos-btn" onclick="window.downloadAllPhotosZip()" class="text-xs bg-indigo-600 text-white font-semibold hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                Download Photos (ZIP)
-            </button>
-            <button id="download-raw-photos-btn" onclick="window.downloadAllRawPhotosZip()" class="text-xs bg-orange-600 text-white font-semibold hover:bg-orange-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                Download Raw (ZIP)
-            </button>
-             <button id="download-notes-btn" onclick="window.downloadNotesTextReport()" class="text-xs bg-gray-600 text-white font-semibold hover:bg-gray-700 px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
-                Download Notes (TXT)
-            </button>
-        </div>
-        
-        <div id="report-feed" class="space-y-4">
-            <div class="text-center text-gray-500 py-10">Loading inspection data...</div>
-        </div>
-    </div>
-
-    <!-- TAB 3: MAP VIEW -->
-    <div id="tab-map" class="tab-content p-4 max-w-4xl mx-auto h-full">
-        <div class="bg-white rounded-lg shadow border border-gray-200 p-4 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="font-bold text-gray-700">Project Map</h2>
-                <div class="text-xs text-gray-500">Locations for Photos & Notes</div>
-            </div>
-            <div id="map-container" class="bg-gray-100 rounded"></div>
-        </div>
-    </div>
-
-    <!-- TAB 4: RAW FILES -->
-    <div id="tab-files" class="tab-content p-4 max-w-4xl mx-auto">
-        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <h2 class="font-bold text-gray-700">Raw Storage Browser</h2>
-                <div class="flex gap-2">
-                    <button onclick="window.browserUp()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">⬆ Up</button>
-                    <button onclick="window.refreshBrowser()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold border">↻</button>
+                <!-- Floating Action for Export -->
+                <div class="absolute bottom-4 right-4 z-20">
+                    <button onclick="document.getElementById('export-modal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg flex items-center gap-2 pr-5 transition transform active:scale-95">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        <span class="text-sm font-bold">Export</span>
+                    </button>
                 </div>
             </div>
-            <div id="browser-path" class="text-xs font-mono text-gray-500 mb-2 truncate">/</div>
-            <div id="browser-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto"></div>
         </div>
-    </div>
 
-    <!-- BOTTOM NAV -->
-    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex justify-around items-center h-16 z-30 pb-safe">
-        <button onclick="window.switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
-            <span class="text-xl">📷</span>
-            <span class="text-[10px] font-bold mt-1">Inspect</span>
+        <!-- TAB 3: MAP -->
+        <div id="tab-map" class="tab-content h-full relative">
+            <div id="map-container" class="bg-slate-200"></div>
+            <button onclick="window.app.centerMap()" class="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-md z-[400] text-slate-700 hover:text-blue-600">
+                <i data-lucide="crosshair" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <!-- TAB 4: FILES -->
+        <div id="tab-files" class="tab-content p-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-700">Raw Storage</h3>
+                    <div class="flex gap-2">
+                        <button onclick="window.app.fileBrowserUp()" class="p-1.5 hover:bg-slate-200 rounded text-slate-600"><i data-lucide="arrow-up" class="w-4 h-4"></i></button>
+                        <button onclick="window.app.refreshFiles()" class="p-1.5 hover:bg-slate-200 rounded text-slate-600"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div class="px-3 py-1 bg-slate-100 text-[10px] font-mono text-slate-500 truncate border-b border-slate-200" id="browser-path">/</div>
+                <div id="file-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3 content-start"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bg-white border-t border-slate-200 flex justify-around items-center h-[70px] pb-safe z-30 flex-none">
+        <button onclick="window.app.switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-blue-600 transition group">
+            <i data-lucide="camera" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
+            <span class="text-[10px] font-bold">Inspect</span>
         </button>
-        <button onclick="window.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
-            <span class="text-xl">📋</span>
-            <span class="text-[10px] font-bold mt-1">Report</span>
+        <button onclick="window.app.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group">
+            <i data-lucide="clipboard-list" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
+            <span class="text-[10px] font-bold">Log</span>
         </button>
-        <button onclick="window.switchTab('map')" id="nav-map" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
-            <span class="text-xl">🗺️</span>
-            <span class="text-[10px] font-bold mt-1">Map</span>
+        <button onclick="window.app.switchTab('map')" id="nav-map" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group">
+            <i data-lucide="map" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
+            <span class="text-[10px] font-bold">Map</span>
         </button>
-        <button onclick="window.switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-600 transition">
-            <span class="text-xl">🗄️</span>
-            <span class="text-[10px] font-bold mt-1">Raw Files</span>
+        <button onclick="window.app.switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group">
+            <i data-lucide="hard-drive" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
+            <span class="text-[10px] font-bold">Files</span>
         </button>
     </nav>
 
-    <!-- NEW: WHITEBOARD MODAL -->
-    <div id="whiteboard-modal" class="fixed inset-0 z-[60] bg-white hidden flex flex-col">
-        <!-- Whiteboard Header -->
-        <div class="bg-gray-100 p-3 border-b border-gray-300 flex justify-between items-center flex-none">
-            <div class="flex items-center gap-3">
-                <button onclick="window.closeWhiteboard()" class="text-gray-600 hover:text-gray-900 font-bold">✕ Cancel</button>
-                <div class="h-6 w-px bg-gray-300"></div>
-                <div class="flex gap-2">
-                    <input type="color" id="wb-color" value="#000000" class="h-8 w-8 cursor-pointer border border-gray-300 rounded">
-                    <input type="range" id="wb-size" min="1" max="10" value="2" class="w-20">
+    <!-- MODAL: NOTES -->
+    <div id="modal-notes" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
+        <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <div class="flex items-center gap-2 text-slate-700 font-bold">
+                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i> Field Observation
+                </div>
+                <button onclick="window.app.closeNotes()" class="p-1 rounded hover:bg-slate-200 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 flex-1 overflow-y-auto space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <input type="text" id="note-title" placeholder="e.g. North Abutment" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mt-1">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                    <textarea id="note-text" placeholder="Enter observation details..." class="w-full border border-slate-300 rounded-lg p-3 text-sm h-32 resize-none focus:ring-2 focus:ring-emerald-500 outline-none mt-1"></textarea>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="window.clearWhiteboard()" class="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 bg-white">Clear</button>
-                <button onclick="window.saveWhiteboard()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow">Save Sketch</button>
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
+                <button onclick="window.app.closeNotes()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
+                <button onclick="window.app.saveNote()" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
             </div>
-        </div>
-        <!-- Whiteboard Canvas Area -->
-        <div class="flex-1 relative bg-white cursor-crosshair touch-none overflow-hidden" id="wb-wrapper">
-             <canvas id="wb-canvas" class="block"></canvas>
         </div>
     </div>
 
-    <!-- NEW: IMAGE DETAIL MODAL -->
-    <div id="image-detail-modal" class="fixed inset-0 z-[60] bg-black/95 hidden flex flex-col justify-center p-4">
-        <div class="relative w-full max-w-4xl mx-auto flex flex-col h-full max-h-screen">
-            <!-- Header -->
-            <div class="flex justify-between items-center p-2 text-white bg-black/50">
-                <h3 class="font-bold text-lg">Inspection Detail</h3>
-                <div class="flex gap-2">
-                    <button id="detail-download-raw-btn" class="hidden p-2 bg-orange-600 rounded-full hover:bg-orange-500 text-white w-8 h-8 flex items-center justify-center font-bold text-[10px]">RAW</button>
-                    <button id="detail-download-btn" class="p-2 bg-blue-600 rounded-full hover:bg-blue-500 text-white w-8 h-8 flex items-center justify-center">↓</button>
-                    <button onclick="window.closeImageDetail()" class="p-2 bg-gray-800 rounded-full hover:bg-gray-700 text-white w-8 h-8 flex items-center justify-center">✕</button>
+    <!-- MODAL: CAPTION / EDIT -->
+    <div id="modal-caption" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
+        <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="relative bg-slate-100 flex-none h-64 flex items-center justify-center border-b border-slate-200">
+                <img id="modal-img-preview" class="max-h-full max-w-full object-contain">
+                <div id="exif-badge" class="hidden absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-md border border-white/20 flex items-center gap-1">
+                    <i data-lucide="map-pin" class="w-3 h-3 text-green-400"></i> Using EXIF Data
                 </div>
+                <button onclick="window.app.annotateImage()" class="absolute bottom-2 right-2 bg-white/90 p-2 rounded-lg shadow text-xs font-bold flex items-center gap-1 hover:bg-white text-slate-700">
+                    <i data-lucide="pen-tool" class="w-3 h-3"></i> Draw
+                </button>
+            </div>
+            <div class="p-5 flex-1 overflow-y-auto">
+                <h3 class="text-sm font-bold text-slate-800 uppercase mb-3 flex justify-between">
+                    <span id="modal-title-text">Image Details</span>
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                        <input type="text" id="cap-title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                        <textarea id="cap-desc" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm h-24 resize-none focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
+                <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
+                <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SKETCH -->
+    <div id="modal-sketch" class="fixed inset-0 z-[60] bg-white hidden flex flex-col fade-in">
+        <div class="flex-none p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+            <button onclick="window.app.closeSketch()" class="text-slate-500 font-medium text-sm">Cancel</button>
+            <div class="flex items-center gap-3">
+                <input type="color" id="sketch-color" value="#ef4444" class="w-8 h-8 rounded-full overflow-hidden border-0 p-0 cursor-pointer">
+                <input type="range" id="sketch-size" min="2" max="15" value="4" class="w-24 accent-blue-600">
+            </div>
+            <button onclick="window.app.saveSketch()" class="text-blue-600 font-bold text-sm">Done</button>
+        </div>
+        <div class="flex-1 relative bg-white cursor-crosshair touch-none overflow-hidden" id="sketch-wrapper">
+            <canvas id="sketch-canvas" class="block"></canvas>
+        </div>
+        <div class="flex-none p-2 border-t border-slate-200 flex justify-center pb-safe">
+            <button onclick="window.app.clearSketch()" class="text-xs text-red-500 font-bold px-4 py-2 hover:bg-red-50 rounded-lg">Clear Canvas</button>
+        </div>
+    </div>
+
+    <!-- MODAL: EXPORT -->
+    <div id="export-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800">Export Options</h3>
+                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <button onclick="window.app.genPDF()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 transition group">
+                    <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3 group-hover:bg-red-200"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF Report</div><div class="text-[10px] text-slate-500">Compiles photos & notes</div></div>
+                </button>
+                <button onclick="window.app.genCSV()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-200 transition group">
+                    <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 group-hover:bg-green-200"><i data-lucide="table" class="w-5 h-5"></i></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">CSV Data</div><div class="text-[10px] text-slate-500">Spreadsheet compatible</div></div>
+                </button>
+                <button onclick="window.app.genZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-blue-200"><i data-lucide="archive" class="w-5 h-5"></i></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Photos ZIP</div><div class="text-[10px] text-slate-500">Full resolution archive</div></div>
+                </button>
+                <button onclick="window.app.genRawZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-orange-50 hover:border-orange-200 transition group">
+                    <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mr-3 group-hover:bg-orange-200"><i data-lucide="camera-off" class="w-5 h-5"></i></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Raw Images ZIP</div><div class="text-[10px] text-slate-500">Originals without overlay</div></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SETTINGS -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Project Settings</h3>
+            
+            <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-bold text-slate-500 uppercase">Connection</span>
+                <button id="offline-toggle-btn" onclick="window.app.toggleForceOffline()" class="text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition">
+                    Online
+                </button>
             </div>
             
-            <!-- Image Area -->
-            <div class="flex-1 flex items-center justify-center bg-black overflow-hidden relative">
-                <img id="detail-img" class="max-w-full max-h-full object-contain">
+            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Active Project</label>
+            <select id="project-select" onchange="window.app.switchProject(this.value)" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm mb-1 bg-white"></select>
+            
+            <div class="text-right mb-3">
+                <button onclick="window.app.deleteCurrentProject()" class="text-[10px] font-bold text-red-500 hover:text-red-700 underline">Delete Project & Data</button>
             </div>
 
-            <!-- Metadata Footer -->
-            <div class="bg-gray-900 text-gray-300 p-4 space-y-3 border-t border-gray-700">
-                <p id="detail-caption" class="text-white font-bold text-lg leading-tight"></p>
-                <div class="grid grid-cols-2 gap-4 text-xs font-mono">
-                    <div>
-                        <span class="block text-gray-500 uppercase">Date Logged</span>
-                        <span id="detail-date" class="text-blue-400"></span>
-                    </div>
-                    <div>
-                        <span class="block text-gray-500 uppercase">GPS Location</span>
-                        <a id="detail-gps-link" target="_blank" class="text-blue-400 hover:underline cursor-pointer"></a>
-                    </div>
-                    <div>
-                        <span class="block text-gray-500 uppercase">Project ID</span>
-                        <span id="detail-project"></span>
-                    </div>
-                    <div>
-                        <span class="block text-gray-500 uppercase">Record ID</span>
-                        <span id="detail-id" class="text-gray-500"></span>
-                    </div>
-                </div>
+            <div class="border-t border-slate-200 my-4"></div>
+            
+            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">New Project</label>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-proj-name" placeholder="Name..." class="flex-1 border border-slate-300 rounded-lg p-2 text-sm">
+                <button onclick="window.app.createProject()" class="bg-blue-600 text-white rounded-lg px-4 font-bold text-sm">Add</button>
+            </div>
+            
+            <button onclick="window.app.toggleSettings()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-200">Close</button>
+        </div>
+    </div>
+
+    <!-- MODAL: IMAGE DETAIL -->
+    <div id="detail-modal" class="fixed inset-0 z-[60] bg-black hidden flex flex-col justify-center fade-in">
+        <div class="absolute top-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-start text-white">
+            <div>
+                <h3 class="font-bold text-lg" id="det-project"></h3>
+                <div class="text-xs opacity-75 font-mono" id="det-id"></div>
+            </div>
+            <button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="bg-white/10 p-2 rounded-full backdrop-blur-sm"><i data-lucide="x" class="w-6 h-6"></i></button>
+        </div>
+        
+        <div class="flex-1 flex items-center justify-center overflow-hidden">
+            <img id="det-img" class="max-w-full max-h-full object-contain">
+        </div>
+        
+        <div class="bg-slate-900 text-slate-300 p-5 pb-safe space-y-3">
+            <p id="det-caption" class="text-white font-bold text-base"></p>
+            <div class="grid grid-cols-2 gap-4 text-xs font-mono opacity-80">
+                <div>DATE: <span id="det-date" class="text-blue-400"></span></div>
+                <div>GPS: <a id="det-gps" target="_blank" class="text-blue-400 hover:underline"></a></div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button id="det-dl-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-bold text-xs">Download Overlay</button>
+                <button id="det-raw-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold text-xs hidden">Download Raw</button>
             </div>
         </div>
     </div>
 
-    <!-- MODALS (Existing) -->
-    <div id="caption-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
-        <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
-            <div class="relative h-64 bg-gray-100 flex items-center justify-center">
-                <img id="modal-img-preview" class="max-h-full max-w-full object-contain">
-            </div>
-            <div class="p-6">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Photo Caption</label>
-                <button id="annotate-btn" onclick="window.annotatePendingPhoto()" class="w-full mb-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow transition flex items-center justify-center gap-2">
-                    <span>🖊️</span> Draw on Photo
-                </button>
-                <div class="space-y-2 mb-4">
-                    <input type="text" id="modal-caption-title" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Title / Location (e.g. Girder 3)">
-                    <textarea id="modal-caption-desc" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="Detailed Description..."></textarea>
-                </div>
-                <!-- AI Button Removed Here -->
-                <div class="flex gap-3">
-                    <button onclick="window.cancelUpload()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg">Discard</button>
-                    <button onclick="window.confirmUpload()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Save & Upload</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="editor-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-center p-4">
-        <div class="bg-white rounded-xl overflow-hidden shadow-2xl max-w-md mx-auto w-full">
-            <div class="bg-gray-100 p-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="font-bold text-gray-800" id="editor-title">Edit Log Entry</h3>
-                <button onclick="window.closeEditorModal()" class="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div class="p-6 space-y-4">
-                <div id="editor-photo-preview" class="hidden relative h-32 bg-gray-100 mb-3 flex items-center justify-center border border-gray-200 rounded"><img id="editor-preview-img" class="max-h-full max-w-full object-contain"></div>
-                
-                <!-- NEW: Split inputs for editing -->
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title / Location</label>
-                <input type="text" id="editor-title-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-2">
-                
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Detailed Description</label>
-                <textarea id="editor-desc-input" class="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 resize-none"></textarea>
-                
-                <div class="flex flex-col gap-2">
-                    <button onclick="window.regenerateOverlay()" id="editor-regen-btn" class="hidden w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg shadow text-xs flex items-center justify-center gap-2">
-                        <span>✨</span> Re-burn Overlay Text (Uses Original Photo)
-                    </button>
-                    <button onclick="window.updateLogEntry()" id="editor-save-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-gray-800">Settings</h3><button onclick="document.getElementById('settings-modal').classList.add('hidden')">✕</button></div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Active Project</label>
-                    <div class="flex gap-2">
-                        <select id="project-select" class="flex-1 border border-gray-300 rounded p-2 text-sm bg-white" onchange="window.switchProject(this.value)"></select>
-                        <button onclick="window.toggleNewProjectInput()" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-lg font-bold">+</button>
-                    </div>
-                    <div id="new-project-div" class="hidden mt-2 p-2 bg-blue-50 rounded border border-blue-100">
-                        <input type="text" id="new-project-input" placeholder="Enter Project ID" class="w-full border border-blue-200 rounded p-2 text-sm mb-2">
-                        <div class="flex gap-2"><button onclick="window.createNewProject()" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded">Create</button><button onclick="window.toggleNewProjectInput()" class="bg-gray-200 text-gray-600 px-3 rounded text-xs">Cancel</button></div>
-                    </div>
-                </div>
-            </div>
-            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="mt-6 w-full py-3 bg-gray-800 text-white font-bold rounded-lg">Close</button>
-        </div>
+    <!-- TOAST & LOADER -->
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-5 py-2.5 rounded-full shadow-xl text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[70] flex items-center gap-2">
+        <i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i> <span id="toast-msg">Action</span>
     </div>
     
-    <div id="st-rules" class="hidden">rules_version = '2'; service firebase.storage { match /b/{bucket}/o { match /artifacts/{appId}/{allPaths=**} { allow read, write: if request.auth != null; } } }</div>
-    <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[60]">Photo Added</div>
-    <div id="loading-overlay" class="fixed inset-0 z-[60] bg-black/80 hidden flex flex-col items-center justify-center text-white"><div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div><p id="loading-text" class="font-medium">Uploading...</p></div>
+    <div id="loader" class="fixed inset-0 z-[80] bg-white/90 hidden flex flex-col items-center justify-center fade-in">
+        <div class="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <div id="loader-text" class="text-slate-600 font-bold animate-pulse">Processing...</div>
+    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- FIREBASE & APP LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, getDocs, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-        import 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-        
-        function saveAs(blob, filename) {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
-        }
+        import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, deleteDoc, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
-        const config = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD2jsJTjSlWf3SINS3u4fz3Lu5IYbI6N94", authDomain: "field-cam.firebaseapp.com", projectId: "field-cam", storageBucket: "field-cam.firebasestorage.app", messagingSenderId: "952385597528", appId: "1:952385597528:web:3a5b2011a4cc2b29e41a2d" };
+        // CONFIG
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'field-notes-v2';
+        const fbConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD2jsJTjSlWf3SINS3u4fz3Lu5IYbI6N94", authDomain: "field-cam.firebaseapp.com", projectId: "field-cam", storageBucket: "field-cam.firebasestorage.app", messagingSenderId: "952385597528", appId: "1:952385597528:web:3a5b2011a4cc2b29e41a2d" };
 
-        let db, storage, auth, user;
-        let currentProject = localStorage.getItem('fc_active_project') || "Bridge-001";
-        let knownProjects = new Set(JSON.parse(localStorage.getItem('fc_projects') || '["Bridge-001"]'));
-        
-        let pendingBlob = null, pendingBase64 = null;
-        let browserPath = `artifacts/${appId}/public/data/files`; 
-        let currentEditingItem = null, currentReportFilter = 'photo', currentSort = 'newest';
-        let isSeriesMode = false, seriesPhotoQueue = [];
-        let cachedItems = [], currentLocation = null, mapInstance = null, markerGroup = null;
-        let currentWeather = { temp: "", desc: "" };
-        let currentHeading = null;
-        
-        // WHITEBOARD VARS
-        let wbCanvas, wbCtx, isDrawing = false, lastX = 0, lastY = 0;
+        // APP STATE
+        const state = {
+            db: null, storage: null, auth: null, user: null,
+            project: localStorage.getItem('fp_project') || "Project-Alpha",
+            projects: new Set(JSON.parse(localStorage.getItem('fp_projects') || '["Project-Alpha"]')),
+            location: null, weather: { temp: '', desc: '' }, heading: null,
+            filter: 'all', path: `artifacts/${appId}/public/data/files`,
+            items: [], seriesMode: false, queue: [],
+            pendingBlob: null, pendingId: null, editMode: false,
+            tempMeta: null, // Holds EXIF data temporarily
+            online: navigator.onLine, // Connection state
+            forcedOffline: false, // User override
+            batchMode: false // Flag for batch upload workflow
+        };
 
-        // -- CORE FUNCTIONS MOVED TO TOP --
-        function blobToBase64(blob) { return new Promise((r,j) => { const reader=new FileReader(); reader.onloadend=()=>r(reader.result.split(',')[1]); reader.onerror=j; reader.readAsDataURL(blob); }); }
-        function showToast(msg) { const t = document.getElementById('toast'); t.innerText=msg; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2000); }
-        function updateStatus(s) { document.getElementById('status-indicator').className=`w-2 h-2 rounded-full ${s==='online'?'bg-green-500':'bg-red-500'}`; }
-        function setLoading(a,t="Loading") { document.getElementById('loading-overlay').classList.toggle('hidden',!a); document.getElementById('loading-text').innerText=t; }
-        
-        // Delete Raw File Helper
-        window.deleteRawFile = async (fullPath) => {
-            if(!confirm("Are you sure you want to permanently delete this file? This cannot be undone.")) return;
-            setLoading(true, "Deleting file...");
-            try {
-                await deleteObject(ref(storage, fullPath));
-                showToast("File deleted");
-                loadBrowser(browserPath); // Refresh current view
-            } catch(e) {
-                console.error(e);
-                alert("Delete failed: " + e.message);
-            } finally {
-                setLoading(false);
+        // UTILS
+        const $ = (id) => document.getElementById(id);
+        const showToast = (msg) => {
+            $('toast-msg').innerText = msg; $('toast').classList.remove('opacity-0');
+            setTimeout(() => $('toast').classList.add('opacity-0'), 2500);
+        };
+        const toggleLoader = (show, txt="Loading...") => {
+            if(show) { $('loader-text').innerText = txt; $('loader').classList.remove('hidden'); }
+            else $('loader').classList.add('hidden');
+        };
+        const formatDate = (ts) => new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+        // INDEXED DB HELPER FOR OFFLINE STORAGE
+        class OfflineManager {
+            constructor() {
+                this.dbName = 'FieldNotesDB';
+                this.storeName = 'pending_uploads';
+                this.db = null;
+                this.initDB();
             }
-        };
 
-        // --- WHITEBOARD FUNCTIONS ---
-        window.openWhiteboard = () => {
-             document.getElementById('whiteboard-modal').classList.remove('hidden');
-             setTimeout(initWhiteboard, 100); // Allow render
-        };
-        
-        window.annotatePendingPhoto = async () => {
-             if(!pendingBlob) return alert("No photo to annotate");
-             
-             // Open whiteboard
-             document.getElementById('whiteboard-modal').classList.remove('hidden');
-             document.getElementById('caption-modal').classList.add('hidden'); // Hide caption modal
-             
-             setTimeout(() => {
-                 initWhiteboard();
-                 // Load pendingBlob into canvas
-                 const img = new Image();
-                 img.onload = () => {
-                     // Draw image to canvas, fitting within aspect ratio
-                     const canvas = document.getElementById('wb-canvas');
-                     const ctx = canvas.getContext('2d');
-                     
-                     // Fill white first
-                     ctx.fillStyle = "#ffffff";
-                     ctx.fillRect(0,0,canvas.width, canvas.height);
-                     
-                     // Draw image stretched to fill for now to be simple, 
-                     // or aspect fit? Let's fill for whiteboard feeling
-                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                 };
-                 img.src = URL.createObjectURL(pendingBlob);
-             }, 100);
-        };
+            initDB() {
+                const req = indexedDB.open(this.dbName, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if(!db.objectStoreNames.contains(this.storeName)) {
+                        db.createObjectStore(this.storeName, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = (e) => {
+                    this.db = e.target.result;
+                    this.updateOutboxCount();
+                };
+            }
 
-        window.closeWhiteboard = () => {
-             document.getElementById('whiteboard-modal').classList.add('hidden');
-             // If we were annotating, show caption modal again
-             if(pendingBlob) document.getElementById('caption-modal').classList.remove('hidden');
-        };
+            async addToOutbox(item) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction([this.storeName], 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    store.put(item);
+                    tx.oncomplete = () => {
+                        this.updateOutboxCount();
+                        resolve();
+                    };
+                    tx.onerror = (e) => reject(e);
+                });
+            }
 
-        function initWhiteboard() {
-            wbCanvas = document.getElementById('wb-canvas');
-            const wrapper = document.getElementById('wb-wrapper');
-            wbCanvas.width = wrapper.offsetWidth;
-            wbCanvas.height = wrapper.offsetHeight;
-            wbCtx = wbCanvas.getContext('2d');
-            
-            // Set white background immediately
-            wbCtx.fillStyle = "#ffffff";
-            wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-            
-            wbCtx.lineJoin = 'round';
-            wbCtx.lineCap = 'round';
-            wbCtx.lineWidth = 2;
-            wbCtx.strokeStyle = '#000000';
-            
-            // Pointer Events (Unified)
-            wbCanvas.addEventListener('pointerdown', startDrawing);
-            wbCanvas.addEventListener('pointermove', draw);
-            wbCanvas.addEventListener('pointerup', stopDrawing);
-            wbCanvas.addEventListener('pointerout', stopDrawing);
-            
-            // UI Controls
-            document.getElementById('wb-color').onchange = (e) => wbCtx.strokeStyle = e.target.value;
-            document.getElementById('wb-size').oninput = (e) => wbCtx.lineWidth = e.target.value;
+            async getOutbox() {
+                return new Promise((resolve) => {
+                    if(!this.db) return resolve([]);
+                    const tx = this.db.transaction([this.storeName], 'readonly');
+                    const store = tx.objectStore(this.storeName);
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result);
+                });
+            }
+
+            async removeFromOutbox(id) {
+                return new Promise((resolve) => {
+                    const tx = this.db.transaction([this.storeName], 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    store.delete(id);
+                    tx.oncomplete = () => {
+                        this.updateOutboxCount();
+                        resolve();
+                    };
+                });
+            }
+
+            async updateOutboxCount() {
+                const items = await this.getOutbox();
+                const badge = $('outbox-badge');
+                if(items.length > 0) {
+                    badge.classList.remove('hidden');
+                    $('outbox-count').innerText = items.length;
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
         }
 
-        function startDrawing(e) {
-            isDrawing = true;
-            const rect = wbCanvas.getBoundingClientRect();
-            [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            e.preventDefault(); // Stop scrolling
-            const rect = wbCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            wbCtx.beginPath();
-            wbCtx.moveTo(lastX, lastY);
-            wbCtx.lineTo(x, y);
-            wbCtx.stroke();
-            [lastX, lastY] = [x, y];
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-        }
-        
-        window.clearWhiteboard = () => {
-             wbCtx.fillStyle = "#ffffff";
-             wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-             // If annotating, re-draw original image? Too complex for now. Clear = blank page.
-        };
-        
-        window.saveWhiteboard = () => {
-            setLoading(true, "Processing Sketch...");
-            try {
-                if(!wbCanvas) throw new Error("Canvas not initialized");
+        // --- CORE APPLICATION ---
+        class FieldApp {
+            constructor() {
+                this.map = null;
+                this.markers = null;
+                this.wbCtx = null;
+                this.bgImage = null; // Store background image for clearing sketch
+                this.offlineMgr = new OfflineManager();
+                this.initFirebase();
+                this.initSensors();
+                this.bindEvents();
+                lucide.createIcons();
                 
-                wbCanvas.toBlob((blob) => {
-                    setLoading(false);
-                    if(blob) {
-                        window.handleSketchSave(blob);
-                    } else {
-                        alert("Error saving canvas: blob is null");
-                    }
-                }, 'image/png'); // PNG preserves quality before burning
-            } catch (e) {
-                console.error(e);
-                setLoading(false);
-                alert("Error in saveWhiteboard: " + e.message);
-            }
-        };
-
-        window.handleSketchSave = (blob) => {
-            pendingBlob = blob; // This becomes the new "photo"
-            
-            // FORCE HIDE MODAL
-            document.getElementById('whiteboard-modal').classList.add('hidden');
-            
-            // Reset fields
-            document.getElementById('modal-img-preview').src = URL.createObjectURL(blob);
-            
-            document.querySelector('#caption-modal label').innerText = "Details";
-            document.getElementById('modal-save-btn').innerText = "Save & Upload";
-            document.getElementById('caption-modal').classList.remove('hidden');
-        };
-
-        // --- COMPASS ---
-        window.requestCompassPermission = async () => {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try {
-                    const perm = await DeviceOrientationEvent.requestPermission();
-                    if (perm === 'granted') {
-                        window.addEventListener('deviceorientation', handleOrientation);
-                        document.getElementById('compass-status').innerText = "Active";
-                    } else {
-                        alert("Permission denied");
-                    }
-                } catch(e) { alert(e); }
-            } else {
-                alert("Not required on this device or not supported.");
-                window.addEventListener('deviceorientationabsolute', handleOrientation);
-                window.addEventListener('deviceorientation', handleOrientation);
-            }
-        };
-
-        function handleOrientation(e) {
-            let heading = null;
-            if(e.webkitCompassHeading) {
-                heading = e.webkitCompassHeading;
-            } else if (e.alpha !== null) {
-                // Approximate for Android if absolute is available, else relative
-                heading = 360 - e.alpha; 
+                // Connection Listeners
+                window.addEventListener('online', () => this.updateConnectionStatus());
+                window.addEventListener('offline', () => this.updateConnectionStatus());
+                this.updateConnectionStatus(); // Initial check
             }
             
-            if(heading !== null) {
-                currentHeading = heading;
-                const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-                const ix = Math.round(heading / 45) % 8;
-                const el = document.getElementById('compass-status');
-                if(el) {
-                    el.innerText = `${Math.round(heading)}° ${dirs[ix]}`;
-                    el.classList.remove('text-gray-400');
-                    el.classList.add('text-blue-600');
+            toggleForceOffline() {
+                state.forcedOffline = !state.forcedOffline;
+                this.updateConnectionStatus();
+                
+                // Update Button Visual
+                const btn = $('offline-toggle-btn');
+                if(state.forcedOffline) {
+                    btn.innerText = "Offline (Forced)";
+                    btn.className = "text-xs font-bold px-3 py-1 rounded bg-orange-100 text-orange-700 border border-orange-200 transition";
+                } else {
+                    btn.innerText = "Online";
+                    btn.className = "text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition";
                 }
+                
+                showToast(state.forcedOffline ? "Offline Mode Enabled" : "Back Online");
             }
-        }
 
-        // --- WEATHER FETCHING ---
-        async function fetchWeather(lat, lng) {
-            try {
-                const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=fahrenheit`);
-                const data = await r.json();
-                if(data.current_weather) {
-                    const code = data.current_weather.weathercode;
-                    // Simple code mapping
-                    let desc = "Unknown";
-                    if(code === 0) desc = "Clear Sky";
-                    else if(code < 4) desc = "Partly Cloudy";
-                    else if(code < 50) desc = "Foggy";
-                    else if(code < 80) desc = "Rain";
-                    else desc = "Storm/Snow";
-                    
-                    currentWeather = { temp: `${data.current_weather.temperature}°F`, desc: desc };
-                    
-                    // Update UI
-                    const wxEl = document.getElementById('weather-status');
-                    if(wxEl) {
-                        wxEl.innerText = `${desc}, ${data.current_weather.temperature}°F`;
-                        wxEl.classList.remove('text-gray-400');
-                        wxEl.classList.add('text-blue-600');
-                    }
-                }
-            } catch(e) { console.warn("Weather fetch failed", e); }
-        }
+            updateConnectionStatus() {
+                // Effective status logic
+                const networkOnline = navigator.onLine;
+                const effectiveOnline = networkOnline && !state.forcedOffline;
+                state.online = effectiveOnline;
 
-        // --- IMAGE PROCESSING (BURN TEXT) ---
-        function processImageWithOverlay(blob, meta) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                const url = URL.createObjectURL(blob);
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    // Keep original dimensions
-                    const w = img.naturalWidth;
-                    const h = img.naturalHeight;
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Fill white background for sketches to handle transparency
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(0, 0, w, h);
+                $('status-indicator').className = `w-3 h-3 rounded-full ring-2 ring-white shadow-sm transition-colors duration-300 ${effectiveOnline ? 'bg-green-500' : 'bg-orange-500'}`;
+                
+                if(effectiveOnline) this.syncOutbox();
+            }
 
-                    // Draw original
-                    ctx.drawImage(img, 0, 0);
+            async syncOutbox() {
+                if(!state.online) return showToast("Still Offline");
+                const items = await this.offlineMgr.getOutbox();
+                if(items.length === 0) return;
 
-                    // Dynamic Styling - Reduced font size
-                    const fontSize = Math.floor(h * 0.022); // Reduced from 0.03 to 0.022
-                    const padding = Math.floor(fontSize * 0.5);
-                    const lineHeight = Math.floor(fontSize * 1.4);
+                toggleLoader(true, `Syncing ${items.length} items...`);
+                let successCount = 0;
 
-                    ctx.font = `bold ${fontSize}px sans-serif`;
-                    ctx.textBaseline = "top";
-                    
-                    // --- TOP LEFT: Project ---
-                    const projText = `PROJECT: ${meta.projectId}`;
-                    const projMetrics = ctx.measureText(projText);
-                    const projBgW = projMetrics.width + (padding * 2);
-                    const projBgH = lineHeight + padding;
-                    
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-                    ctx.fillRect(0, 0, projBgW, projBgH);
-                    
-                    ctx.fillStyle = "#ffffff";
-                    ctx.textAlign = "left";
-                    ctx.fillText(projText, padding, padding/2);
-
-                    // --- TOP RIGHT: Photo # ---
-                    const photoText = `PHOTO: ${meta.photoNumber || meta.id.substring(8)}`;
-                    const photoMetrics = ctx.measureText(photoText);
-                    const photoBgW = photoMetrics.width + (padding * 2);
-                    
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-                    ctx.fillRect(w - photoBgW, 0, photoBgW, projBgH);
-                    
-                    ctx.fillStyle = "#ffffff";
-                    ctx.textAlign = "right";
-                    ctx.fillText(photoText, w - padding, padding/2);
-
-                    // --- BOTTOM: Metadata Stack ---
-                    // Prepare lines
-                    const dateStr = new Date(meta.timestamp).toLocaleString();
-                    const gpsStr = meta.lat ? `${meta.lat.toFixed(6)}, ${meta.lng.toFixed(6)}` : "No GPS Data";
-                    const wxStr = meta.weather ? `${meta.weather.desc} (${meta.weather.temp})` : "Weather: N/A";
-                    const capStr = meta.caption || "No Caption";
-                    
-                    // Format Compass
-                    let hdgStr = "";
-                    if(meta.heading !== null && meta.heading !== undefined) {
-                        const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-                        const ix = Math.round(meta.heading / 45) % 8;
-                        hdgStr = ` | HDG: ${Math.round(meta.heading)}° ${dirs[ix]}`;
-                    }
-
-                    // Helper for text wrapping
-                    const getLines = (ctx, text, maxWidth) => {
-                        const words = text.split(" ");
-                        const lines = [];
-                        let currentLine = words[0];
-
-                        for (let i = 1; i < words.length; i++) {
-                            const word = words[i];
-                            const width = ctx.measureText(currentLine + " " + word).width;
-                            if (width < maxWidth) {
-                                currentLine += " " + word;
-                            } else {
-                                lines.push(currentLine);
-                                currentLine = word;
-                            }
+                for(const item of items) {
+                    try {
+                        // Restore blob from DB (it's stored as is)
+                        // If it's a note (no blob), skip upload logic
+                        if(item.type === 'note') {
+                            await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta);
+                        } else {
+                            await this.uploadWorkflow(item.blob, item.meta, item.doOverlay);
                         }
-                        lines.push(currentLine);
-                        return lines;
+                        await this.offlineMgr.removeFromOutbox(item.id);
+                        successCount++;
+                    } catch(e) {
+                        console.error("Sync failed for item", item.id, e);
+                    }
+                }
+                
+                toggleLoader(false);
+                if(successCount > 0) showToast(`Synced ${successCount} items`);
+            }
+
+            async initFirebase() {
+                const app = initializeApp(fbConfig);
+                state.auth = getAuth(app);
+                state.db = getFirestore(app);
+                state.storage = getStorage(app);
+
+                onAuthStateChanged(state.auth, (user) => {
+                    state.user = user;
+                    // Status logic moved to updateConnectionStatus for better control
+                    if(user) {
+                        this.loadData();
+                        this.refreshFiles();
+                        this.syncProjectList(); // Check storage for other projects
+                    }
+                });
+
+                // Auth Logic
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                try {
+                    if (token) await signInWithCustomToken(state.auth, token);
+                    else await signInAnonymously(state.auth);
+                } catch(e) { console.error("Auth Fail", e); }
+
+                this.updateProjectUI();
+            }
+
+            // --- SENSORS ---
+            initSensors() {
+                // GPS
+                if(navigator.geolocation) {
+                    navigator.geolocation.watchPosition(p => {
+                        state.location = { lat: p.coords.latitude, lng: p.coords.longitude };
+                        $('gps-val').innerText = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+                        $('gps-val').className = "text-xs font-mono font-bold text-green-600 truncate w-full";
+                        if(!state.weather.temp) this.fetchWeather(p.coords.latitude, p.coords.longitude);
+                    }, e => {
+                        $('gps-val').innerText = "No Signal";
+                        $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
+                    }, { enableHighAccuracy: true });
+                }
+
+                // Compass (Requires explicit permission on iOS)
+                // We listen for events, but UI triggers requestCompass()
+                window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
+            }
+
+            async requestCompass() {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try {
+                        const perm = await DeviceOrientationEvent.requestPermission();
+                        if (perm === 'granted') showToast("Compass Active");
+                        else showToast("Permission Denied");
+                    } catch (e) { alert(e); }
+                } else {
+                    showToast("Compass Active");
+                }
+            }
+
+            handleOrientation(e) {
+                let heading = e.webkitCompassHeading || Math.abs(e.alpha - 360);
+                if(heading) {
+                    state.heading = heading;
+                    $('compass-val').innerText = Math.round(heading) + "°";
+                    $('compass-icon').style.transform = `rotate(${heading * -1}deg)`;
+                }
+            }
+
+            async fetchWeather(lat, lng) {
+                try {
+                    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=fahrenheit`);
+                    const d = await r.json();
+                    if(d.current_weather) {
+                        const code = d.current_weather.weathercode;
+                        const temp = d.current_weather.temperature;
+                        const desc = code === 0 ? "Clear" : code < 4 ? "Cloudy" : code < 50 ? "Fog" : "Precip";
+                        state.weather = { temp: `${temp}°F`, desc };
+                        $('wx-val').innerText = `${desc}, ${temp}°F`;
+                    }
+                } catch(e) {}
+            }
+
+            // --- UI ACTIONS ---
+            switchTab(id) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                $( `tab-${id}` ).classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(el => {
+                    el.classList.remove('text-blue-600', 'active');
+                    el.classList.add('text-slate-400');
+                });
+                const nav = $(`nav-${id}`);
+                nav.classList.add('text-blue-600', 'active');
+                nav.classList.remove('text-slate-400');
+
+                if(id === 'map') {
+                    setTimeout(() => {
+                        if(!this.map) this.initMap();
+                        this.map.invalidateSize();
+                        this.renderMapMarkers();
+                    }, 100);
+                }
+            }
+
+            toggleSettings() {
+                const m = $('settings-modal');
+                m.classList.toggle('hidden');
+                if(!m.classList.contains('hidden')) {
+                    const sel = $('project-select');
+                    sel.innerHTML = '';
+                    Array.from(state.projects).sort().forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p; opt.text = p; opt.selected = (p === state.project);
+                        sel.appendChild(opt);
+                    });
+                }
+            }
+
+            // --- PROJECT LOGIC ---
+            createProject(nameOverride = null) {
+                let n = nameOverride;
+                if (!n) n = $('new-proj-name').value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
+                
+                if(n) {
+                    state.projects.add(n);
+                    localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                    this.switchProject(n);
+                    if(!nameOverride) $('new-proj-name').value = '';
+                }
+            }
+
+            switchProject(p) {
+                state.project = p;
+                localStorage.setItem('fp_project', p);
+                this.updateProjectUI();
+                this.loadData(); // Reload data for new project
+                this.toggleSettings();
+                showToast(`Switched to ${p}`);
+            }
+
+            async deleteCurrentProject() {
+                const p = state.project;
+                if(!confirm(`⚠️ DANGER ZONE ⚠️\n\nAre you sure you want to delete project: "${p}"?\n\nThis will PERMANENTLY DELETE all photos, notes, and files associated with this project.\n\nThis action cannot be undone.`)) return;
+                
+                const confirmName = prompt(`To confirm deletion, please type the project name "${p}" below:`);
+                if(confirmName !== p) return alert("Project name did not match. Deletion cancelled.");
+
+                toggleLoader(true, `Deleting ${p}...`);
+                this.toggleSettings(); // Close modal
+
+                try {
+                    // 1. Delete Firestore Documents
+                    // We must fetch them first to get their IDs
+                    const q = query(collection(state.db, `artifacts/${appId}/public/data/images`), where("projectId", "==", p));
+                    const snap = await getDocs(q);
+                    
+                    const docDeletes = snap.docs.map(d => deleteDoc(d.ref));
+                    await Promise.all(docDeletes);
+
+                    // 2. Delete Storage Files
+                    // Listing files in the project folder
+                    const folderRef = ref(state.storage, `artifacts/${appId}/public/data/files/${p}`);
+                    try {
+                        const list = await listAll(folderRef);
+                        const fileDeletes = list.items.map(item => deleteObject(item));
+                        await Promise.all(fileDeletes);
+                    } catch(e) {
+                        console.warn("Storage folder likely empty or not found:", e);
+                    }
+
+                    // 3. Update Local State
+                    state.projects.delete(p);
+                    localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+
+                    // 4. Switch to another project or create default
+                    if(state.projects.size > 0) {
+                        const next = Array.from(state.projects)[0];
+                        this.switchProject(next);
+                    } else {
+                        this.createProject("Project-Alpha");
+                    }
+                    
+                    showToast("Project Deleted");
+
+                } catch(e) {
+                    console.error(e);
+                    alert("Delete failed: " + e.message);
+                } finally {
+                    toggleLoader(false);
+                }
+            }
+
+            updateProjectUI() {
+                $('header-project-name').innerText = state.project;
+            }
+
+            async syncProjectList() {
+                // Look at storage folders to find other projects not in local cache
+                try {
+                    const res = await listAll(ref(state.storage, `artifacts/${appId}/public/data/files`));
+                    res.prefixes.forEach(p => state.projects.add(p.name));
+                    localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                } catch(e) {}
+            }
+
+            // --- CAMERA & CAPTURE ---
+            bindEvents() {
+                $('camera-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], false));
+                $('gallery-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], true));
+            }
+
+            handleFileSelect(file, isGallery) {
+                if(!file) return;
+                
+                // HEIC Conversion Logic
+                // Added SAFETY CHECK for file.name before accessing it
+                if (file.type === "image/heic" || (file.name && file.name.toLowerCase().endsWith('.heic'))) {
+                    toggleLoader(true, "Converting HEIC...");
+                    heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 }).then(jpgBlob => {
+                        toggleLoader(false);
+                        // Re-assign name property to blob for consistency - FIXED to create proper File
+                        const name = (file.name ? file.name.replace(/\.[^/.]+$/, "") : "image") + ".jpg";
+                        const newFile = new File([jpgBlob], name, { type: "image/jpeg" });
+                        this.processBlob(newFile, true);
+                    }).catch(e => {
+                        toggleLoader(false);
+                        alert("HEIC conversion failed. Please try a different photo.");
+                        console.error(e);
+                    });
+                    return;
+                }
+
+                this.processBlob(file, isGallery);
+            }
+
+            processBlob(file, isGallery) {
+                state.pendingBlob = file;
+                state.pendingId = Date.now().toString();
+                state.editMode = false;
+                $('camera-input').value = ''; // Reset
+                $('gallery-input').value = ''; // Reset
+
+                if (isGallery) {
+                    // Extract Metadata from Gallery Image
+                    this.extractExif(file).then(exifData => {
+                        state.tempMeta = exifData;
+                        this.openCaptionModal(file, false, true); // True for "isGallery"
+                    });
+                } else {
+                    // Live Camera - Use live sensors
+                    state.tempMeta = null;
+                    if(state.seriesMode) {
+                        this.addToQueue(state.pendingBlob, state.pendingId);
+                    } else {
+                        this.openCaptionModal(file);
+                    }
+                }
+            }
+            
+            extractExif(file) {
+                return new Promise((resolve) => {
+                    try {
+                        EXIF.getData(file, function() {
+                            const allTags = EXIF.getAllTags(this);
+                            
+                            // Parse Date
+                            let timestamp = Date.now();
+                            if (allTags.DateTimeOriginal) {
+                                try {
+                                    // Format: "2023:10:25 14:30:00" -> "2023/10/25 14:30:00"
+                                    const str = allTags.DateTimeOriginal.split(' ');
+                                    const dateParts = str[0].split(':');
+                                    const timeParts = str[1].split(':');
+                                    const date = new Date(dateParts[0], dateParts[1]-1, dateParts[2], timeParts[0], timeParts[1], timeParts[2]);
+                                    if(!isNaN(date.getTime())) timestamp = date.getTime();
+                                } catch(e) { console.warn("Date parse error", e); }
+                            } else if (file.lastModified) {
+                                 timestamp = file.lastModified;
+                            }
+    
+                            // Parse GPS
+                            let lat = null, lng = null;
+                            if (allTags.GPSLatitude && allTags.GPSLongitude) {
+                                // Helper to convert array [deg, min, sec] to decimal
+                                const toDecimal = (gps, ref) => {
+                                    if(!gps || gps.length < 3) return 0;
+                                    let d = gps[0].numerator / gps[0].denominator;
+                                    let m = gps[1].numerator / gps[1].denominator;
+                                    let s = gps[2].numerator / gps[2].denominator;
+                                    let res = d + (m/60) + (s/3600);
+                                    if (ref === 'S' || ref === 'W') res = res * -1;
+                                    return res;
+                                };
+                                lat = toDecimal(allTags.GPSLatitude, allTags.GPSLatitudeRef);
+                                lng = toDecimal(allTags.GPSLongitude, allTags.GPSLongitudeRef);
+                            }
+                            
+                            resolve({ timestamp, lat, lng });
+                        });
+                    } catch(e) {
+                        console.error("EXIF Error", e);
+                        resolve({ timestamp: Date.now(), lat: null, lng: null });
+                    }
+                });
+            }
+
+            toggleSeriesMode() {
+                state.seriesMode = !state.seriesMode;
+                const btn = $('series-btn');
+                const txt = $('series-text');
+                
+                if(state.seriesMode) {
+                    state.queue = []; // Clear old queue
+                    btn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
+                    btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
+                    txt.innerText = "Active (0)";
+                } else {
+                    if(state.queue.length > 0) {
+                        // NEW LOGIC: Open modal instead of processing queue immediately
+                        this.openBatchCaptionModal();
+                    }
+                    btn.classList.add('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
+                    btn.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
+                    txt.innerText = "Series Mode";
+                }
+            }
+
+            addToQueue(blob, id) {
+                // If offline, save directly to IndexedDB outbox
+                if(!state.online) {
+                    this.offlineMgr.addToOutbox({
+                        id, blob,
+                        meta: this.createMeta(id, Date.now()),
+                        doOverlay: $('burn-toggle').checked,
+                        type: 'photo'
+                    });
+                    showToast("Saved to Outbox (Offline)");
+                    return;
+                }
+
+                // If Online, use normal queue flow
+                state.queue.push({ blob, id, timestamp: Date.now() });
+                $('series-text').innerText = `Active (${state.queue.length})`;
+                showToast(`Photo ${state.queue.length} Queued`);
+            }
+            
+            // Replaced processQueue with openBatchCaptionModal logic
+            
+            openBatchCaptionModal() {
+                const count = state.queue.length;
+                if (count === 0) return;
+                
+                const firstItem = state.queue[0];
+                let url;
+                try {
+                    url = URL.createObjectURL(firstItem.blob);
+                } catch(e) { url = ''; }
+                
+                $('modal-img-preview').src = url; 
+                $('cap-title').value = '';
+                $('cap-desc').value = '';
+                $('modal-title-text').innerText = `Batch Upload (${count} Photos)`;
+                $('btn-save-upload').innerText = `Upload ${count} Photos`; 
+                
+                state.editMode = false;
+                state.batchMode = true; 
+                $('modal-caption').classList.remove('hidden');
+            }
+
+            // --- CAPTION MODAL & EDITING ---
+            openCaptionModal(blobOrUrl, isEdit = false, isGallery = false) {
+                let url;
+                try {
+                    if (typeof blobOrUrl === 'string') {
+                        url = blobOrUrl;
+                    } else if (blobOrUrl instanceof Blob) {
+                        url = URL.createObjectURL(blobOrUrl);
+                    } else {
+                        throw new Error("Invalid image source");
+                    }
+                } catch(e) {
+                    console.error("Preview Error:", e);
+                    showToast("Error loading image preview");
+                    return;
+                }
+
+                $('modal-img-preview').src = url;
+                $('cap-title').value = isEdit ? (state.currentItem.title || '') : '';
+                $('cap-desc').value = isEdit ? (state.currentItem.detailedDesc || '') : '';
+                $('modal-title-text').innerText = isEdit ? "Edit Entry" : (isGallery ? "Import Details" : "New Photo Details");
+                
+                // Show badge if using EXIF
+                const badge = $('exif-badge');
+                if (isGallery && state.tempMeta && state.tempMeta.lat) {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                state.editMode = isEdit;
+                $('modal-caption').classList.remove('hidden');
+            }
+
+            closeCaptionModal() {
+                $('modal-caption').classList.add('hidden');
+                state.pendingBlob = null;
+                state.tempMeta = null;
+                state.batchMode = false; // Reset
+                $('btn-save-upload').innerText = "Save"; // Reset button text
+            }
+
+            createMeta(id, ts, defaultCaption = "", overrideNum = null) {
+                 const title = $('cap-title').value.trim();
+                 const desc = $('cap-desc').value.trim();
+                 const cap = (title && desc) ? `${title} - ${desc}` : (desc || title || defaultCaption || "No Caption");
+                 
+                 // Get photo number
+                 let thisNum;
+                 if (overrideNum !== null) {
+                     thisNum = overrideNum;
+                 } else {
+                     const existing = state.items.filter(i => i.type === 'photo');
+                     const maxNum = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+                     thisNum = maxNum + 1;
+                 }
+
+                 // Use EXIF override if available, otherwise live sensors
+                 let finalTs = ts;
+                 let finalLat = state.location?.lat || null;
+                 let finalLng = state.location?.lng || null;
+
+                 if (state.tempMeta) {
+                     finalTs = state.tempMeta.timestamp || ts;
+                     // Only override location if EXIF actually had it. 
+                     // If EXIF has no location (e.g. screenshot), fallback to null (don't fake it with current location)
+                     if (state.tempMeta.lat && state.tempMeta.lng) {
+                         finalLat = state.tempMeta.lat;
+                         finalLng = state.tempMeta.lng;
+                     } else {
+                         finalLat = null;
+                         finalLng = null;
+                     }
+                 }
+
+                 return {
+                     id: id,
+                     projectId: state.project,
+                     timestamp: finalTs,
+                     dateString: formatDate(finalTs),
+                     title: title,
+                     detailedDesc: desc,
+                     caption: cap,
+                     lat: finalLat,
+                     lng: finalLng,
+                     heading: state.heading,
+                     weather: state.weather,
+                     photoNumber: thisNum
+                 };
+            }
+
+            async confirmUpload() {
+                if(state.editMode) {
+                    this.updateEntry();
+                    return;
+                }
+
+                // BATCH MODE HANDLING
+                if (state.batchMode) {
+                    const doOverlay = $('burn-toggle').checked;
+                    const count = state.queue.length;
+
+                    // Calculate starting photo number for sequential batch
+                    const existing = state.items.filter(i => i.type === 'photo');
+                    let currentMax = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+
+                    toggleLoader(true, `Processing ${count} items...`);
+                    this.closeCaptionModal();
+
+                    try {
+                        const promises = state.queue.map((item, idx) => {
+                            currentMax++; // Increment for this item
+                            // Pass overrideNum to createMeta
+                            const meta = this.createMeta(item.id, item.timestamp, null, currentMax);
+
+                            if (!state.online) {
+                                return this.offlineMgr.addToOutbox({
+                                    id: item.id,
+                                    blob: item.blob,
+                                    meta: meta,
+                                    doOverlay: doOverlay,
+                                    type: 'photo'
+                                });
+                            } else {
+                                return this.uploadWorkflow(item.blob, meta, doOverlay);
+                            }
+                        });
+
+                        await Promise.all(promises);
+                        
+                        showToast(state.online ? "Batch Upload Complete" : "Batch Saved Offline");
+                        state.queue = [];
+                        this.switchTab('report');
+                    } catch (e) {
+                         alert("Batch Error: " + e.message);
+                    } finally {
+                        toggleLoader(false);
+                    }
+                    return;
+                }
+
+                // SINGLE UPLOAD HANDLING
+                if(!state.pendingBlob) return;
+                
+                const meta = this.createMeta(state.pendingId, Date.now());
+                const doOverlay = $('burn-toggle').checked;
+                const blobToUpload = state.pendingBlob; // Capture blob before closing modal
+
+                // OFFLINE HANDLING
+                if(!state.online) {
+                    toggleLoader(true, "Saving Offline...");
+                    await this.offlineMgr.addToOutbox({
+                        id: state.pendingId,
+                        blob: blobToUpload,
+                        meta: meta,
+                        doOverlay: doOverlay,
+                        type: 'photo'
+                    });
+                    this.closeCaptionModal();
+                    toggleLoader(false);
+                    showToast("Saved to Outbox (Offline)");
+                    return;
+                }
+
+                // ONLINE HANDLING
+                toggleLoader(true, "Processing...");
+                this.closeCaptionModal(); // This clears state.pendingBlob, but we have blobToUpload
+
+                try {
+                    await this.uploadWorkflow(blobToUpload, meta, doOverlay);
+                    showToast("Upload Complete");
+                    this.switchTab('report');
+                } catch(e) {
+                    alert("Error: " + e.message);
+                } finally {
+                    toggleLoader(false);
+                }
+            }
+
+            async uploadWorkflow(blob, meta, doOverlay) {
+                // ADDED SAFETY CHECK: Ensure blob exists
+                if (!blob) {
+                    console.error("Upload failed: No blob provided");
+                    return;
+                }
+
+                // 1. Upload Raw - Use extension from name if possible
+                let ext = 'jpg';
+                if (blob.name) {
+                    const parts = blob.name.split('.');
+                    if (parts.length > 1) ext = parts.pop();
+                }
+                const rawPath = `artifacts/${appId}/public/data/files/${state.project}/raw_${meta.id}.${ext}`;
+                await uploadBytes(ref(state.storage, rawPath), blob);
+                meta.rawStoragePath = rawPath;
+
+                // 2. Process Overlay (if enabled)
+                let finalBlob = blob;
+                if(doOverlay) {
+                    finalBlob = await this.burnOverlay(blob, meta);
+                }
+
+                // 3. Upload Display Image
+                const dispPath = `artifacts/${appId}/public/data/files/${state.project}/${meta.id}.jpg`;
+                const snap = await uploadBytes(ref(state.storage, dispPath), finalBlob);
+                const url = await getDownloadURL(snap.ref);
+
+                // 4. Save DB Entry
+                meta.url = url;
+                meta.storagePath = dispPath;
+                meta.type = 'photo';
+                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, meta.id), meta);
+            }
+
+            burnOverlay(blob, meta) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    
+                    // Fallback mechanism
+                    const fallback = () => {
+                        console.warn("Image processing failed, using original.");
+                        resolve(blob); 
                     };
 
-                    // Calculate max width for text (width - 2*padding)
-                    const maxTextWidth = w - (padding * 2);
+                    img.onload = () => {
+                        try {
+                            const c = document.createElement('canvas');
+                            
+                            // CALCULATE SCALED DIMENSIONS to max 2560px (Increased for quality)
+                            let w = img.naturalWidth;
+                            let h = img.naturalHeight;
+                            const MAX_DIM = 2560;
+                            
+                            if (w > MAX_DIM || h > MAX_DIM) {
+                                if (w > h) {
+                                    h = Math.round(h * (MAX_DIM / w));
+                                    w = MAX_DIM;
+                                } else {
+                                    w = Math.round(w * (MAX_DIM / h));
+                                    h = MAX_DIM;
+                                }
+                            }
 
-                    // Wrap the caption
-                    const notePrefix = "NOTE: ";
-                    const wrappedNoteLines = getLines(ctx, notePrefix + capStr, maxTextWidth);
+                            c.width = w;
+                            c.height = h;
+                            const ctx = c.getContext('2d');
+                            
+                            // Draw Image
+                            ctx.fillStyle = "#fff"; ctx.fillRect(0,0,w,h);
+                            ctx.drawImage(img, 0, 0, w, h);
 
-                    const fixedLines = [
-                        `DATE: ${dateStr}`,
-                        `LOC: ${gpsStr}${hdgStr}`, // Added Compass Here
-                        `WX: ${wxStr}`
-                    ];
+                            // Overlay Logic
+                            const fSize = Math.floor(h * 0.025);
+                            const pad = fSize * 0.6;
+                            const lh = fSize * 1.4;
+                            
+                            ctx.font = `bold ${fSize}px Inter, sans-serif`;
+                            ctx.textBaseline = "top";
 
-                    const totalLineCount = fixedLines.length + wrappedNoteLines.length;
-                    const bottomHeight = (totalLineCount * lineHeight) + (padding * 2);
+                            // Data Block
+                            const lines = [
+                                `PROJECT: ${meta.projectId}`,
+                                `DATE: ${meta.dateString}`,
+                                `GPS: ${meta.lat ? meta.lat.toFixed(6) : '--'}, ${meta.lng ? meta.lng.toFixed(6) : '--'}`,
+                                `HEADING: ${meta.heading ? Math.round(meta.heading)+'°' : '--'}`,
+                                `NOTES: ${meta.caption}`
+                            ];
+
+                            // Calculate box height based on wrapping note
+                            let renderLines = [];
+                            const maxW = w - (pad*2);
+                            
+                            lines.forEach((l, i) => {
+                                if(i === lines.length - 1) { // Wrap note
+                                    const words = l.split(' ');
+                                    let line = words[0];
+                                    for(let j=1; j<words.length; j++) {
+                                        if(ctx.measureText(line + " " + words[j]).width < maxW) line += " " + words[j];
+                                        else { renderLines.push(line); line = words[j]; }
+                                    }
+                                    renderLines.push(line);
+                                } else {
+                                    renderLines.push(l);
+                                }
+                            });
+
+                            const boxH = (renderLines.length * lh) + (pad*2);
+                            
+                            // Draw Box
+                            ctx.fillStyle = "rgba(0,0,0,0.6)";
+                            ctx.fillRect(0, h - boxH, w, boxH);
+
+                            // Draw Text
+                            ctx.fillStyle = "#ffffff";
+                            let y = h - boxH + pad;
+                            renderLines.forEach(l => {
+                                ctx.fillText(l, pad, y);
+                                y += lh;
+                            });
+
+                            c.toBlob((b) => {
+                                if(b) resolve(b);
+                                else fallback();
+                            }, 'image/jpeg', 0.95); // High Quality
+                        } catch(e) { fallback(); }
+                    };
                     
-                    // Bottom Background
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-                    ctx.fillRect(0, h - bottomHeight, w, bottomHeight);
+                    img.onerror = fallback; // Handle unsupported formats (HEIC etc)
 
-                    // Draw Lines
-                    ctx.textAlign = "left";
-                    ctx.fillStyle = "#ffffff";
-                    
-                    let currentY = h - bottomHeight + padding;
-                    
-                    // Draw Fixed Lines
-                    fixedLines.forEach(line => {
-                        ctx.fillText(line, padding, currentY);
-                        currentY += lineHeight;
-                    });
-
-                    // Draw Wrapped Note Lines
-                    ctx.fillStyle = "#fbbf24"; // Amber
-                    wrappedNoteLines.forEach(line => {
-                        ctx.fillText(line, padding, currentY);
-                        currentY += lineHeight;
-                    });
-
-                    // Series Index (if exists, put it under Photo ID top right)
-                    if(meta.seriesIndex) {
-                         ctx.font = `bold ${Math.floor(fontSize*0.7)}px sans-serif`;
-                         const seriesText = meta.seriesIndex;
-                         const seriesY = projBgH + (padding/2);
-                         
-                         // Small bg for series
-                         const sMetrics = ctx.measureText(seriesText);
-                         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-                         ctx.fillRect(w - sMetrics.width - (padding*2), projBgH, sMetrics.width + (padding*2), lineHeight);
-
-                         ctx.fillStyle = "#fbbf24";
-                         ctx.textAlign = "right";
-                         ctx.fillText(seriesText, w - padding, seriesY + (padding/4));
-                    }
-
-                    canvas.toBlob((b) => {
-                        resolve(b);
-                        URL.revokeObjectURL(url);
-                    }, 'image/jpeg', 0.85);
-                };
-                img.src = url;
-            });
-        }
-
-        // --- NEW: OPEN IMAGE DETAIL ---
-        window.openImageDetail = (id) => {
-            const item = cachedItems.find(i => i.id === id);
-            if (!item) return;
-
-            document.getElementById('detail-img').src = item.url;
-            document.getElementById('detail-caption').innerText = item.caption || "No Caption";
-            document.getElementById('detail-date').innerText = item.dateString || "Unknown";
-            
-            const gpsText = (item.lat && item.lng) ? `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}` : "No GPS Data";
-            const gpsLink = document.getElementById('detail-gps-link');
-            gpsLink.innerText = gpsText;
-            
-            if (item.lat && item.lng) {
-                gpsLink.href = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
-                gpsLink.classList.remove('pointer-events-none', 'text-gray-500');
-                gpsLink.classList.add('text-blue-400', 'hover:underline');
-            } else {
-                gpsLink.href = "#";
-                gpsLink.classList.add('pointer-events-none', 'text-gray-500');
-                gpsLink.classList.remove('text-blue-400', 'hover:underline');
-            }
-            
-            document.getElementById('detail-project').innerText = item.projectId || "";
-            document.getElementById('detail-id').innerText = item.id.substring(8); // Short ID
-            
-            // Set download button handler
-            document.getElementById('detail-download-btn').onclick = () => window.downloadSinglePhoto(id);
-            
-            // Handle Raw Download Button Visibility
-            const rawBtn = document.getElementById('detail-download-raw-btn');
-            if (item.rawStoragePath) {
-                rawBtn.classList.remove('hidden');
-                rawBtn.onclick = () => window.downloadRawPhoto(id);
-            } else {
-                rawBtn.classList.add('hidden');
-            }
-
-            document.getElementById('image-detail-modal').classList.remove('hidden');
-        };
-
-        window.closeImageDetail = () => {
-            document.getElementById('image-detail-modal').classList.add('hidden');
-        };
-
-        async function loadBrowser(path) {
-            browserPath = path;
-            const grid = document.getElementById('browser-grid');
-            document.getElementById('browser-path').innerText = path;
-            grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm">Scanning...</div>';
-            try {
-                const res = await listAll(ref(storage, path));
-                grid.innerHTML = "";
-                res.prefixes.forEach(p => {
-                    const div = document.createElement('div');
-                    div.className = "bg-yellow-50 border border-yellow-200 rounded p-3 text-center cursor-pointer hover:bg-yellow-100";
-                    div.onclick = () => window.loadBrowser(p.fullPath);
-                    div.innerHTML = `<div class="text-2xl mb-1">📁</div><div class="text-xs truncate font-bold text-yellow-800">${p.name}</div>`;
-                    grid.appendChild(div);
-                });
-                for (const item of res.items) {
-                    const url = await getDownloadURL(item);
-                    const div = document.createElement('div');
-                    div.className = "bg-white border border-gray-200 rounded overflow-hidden shadow-sm relative group";
-                    div.innerHTML = `
-                        <div class="h-24 bg-gray-100 relative">
-                            <img src="${url}" class="w-full h-full object-cover">
-                            <button onclick="event.preventDefault(); event.stopPropagation(); window.deleteRawFile('${item.fullPath}')" class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-sm hover:bg-red-700 z-20">✕</button>
-                        </div>
-                        <div class="p-2 text-[10px] text-gray-500 truncate">${item.name}</div>
-                        <a href="${url}" target="_blank" class="absolute inset-0 z-10"></a>
-                    `;
-                    grid.appendChild(div);
-                }
-                if(res.prefixes.length===0 && res.items.length===0) grid.innerHTML = '<div class="col-span-full text-center text-gray-300 text-sm py-4">Empty Folder</div>';
-            } catch(e) {
-                console.warn("Browser Error", e.code);
-                grid.innerHTML = `<div class="col-span-full text-center text-red-400 text-xs py-4">Error: ${e.code}</div>`;
-            }
-        }
-
-        async function _generatePDF_Core() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ unit: 'mm', format: 'letter' });
-            const margin = 15; const pW = 215.9; let y = margin;
-            
-            const sortedItems = [...cachedItems].sort((a,b) => a.timestamp - b.timestamp);
-            const photos = sortedItems.filter(i => i.type === 'photo');
-            const notes = sortedItems.filter(i => i.type === 'note');
-
-            doc.setFontSize(20); doc.text(`Structural Inspection Report`, pW/2, y, {align:'center'}); y+=10;
-            doc.setFontSize(14); doc.text(`Project: ${currentProject}`, pW/2, y, {align:'center'}); y+=15;
-
-            if (photos.length > 0) {
-                doc.setFontSize(16); doc.text("Photo Log", margin, y); y+=10;
-                const loadedPhotos = await Promise.all(photos.map(async p => {
                     try {
-                        const resp = await fetch(p.url); const blob = await resp.blob();
-                        const base64 = await new Promise((r) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r({data:c.toDataURL('image/jpeg', 0.8).split(',')[1], w:img.naturalWidth, h:img.naturalHeight}); }; img.src = URL.createObjectURL(blob); });
-                        return { ...p, base64: base64.data, w: base64.w, h: base64.h };
-                    } catch { return { ...p, base64: null }; }
-                }));
-
-                const targetW = 80;
-                for (let i = 0; i < loadedPhotos.length; i++) {
-                    const p = loadedPhotos[i];
-                    let photoH = 60;
-                    if(p.w && p.h) photoH = targetW * (p.h / p.w);
-                    if(photoH > 100) photoH = 100;
-                    
-                    const rowH = photoH + 25;
-                    if (y + rowH > 270) { doc.addPage(); y = margin; }
-
-                    const col = i % 2;
-                    const xPos = margin + (col * (targetW + 10));
-                    if (col === 0 && i > 0) y += rowH; 
-
-                    if(p.base64) doc.addImage(p.base64, 'JPEG', xPos, y, targetW, photoH);
-                    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.text(`Photo #${p.id.substring(8)}`, xPos, y+photoH+5);
-                    doc.setFont("helvetica", "normal"); const split = doc.splitTextToSize(p.caption, targetW); doc.text(split, xPos, y+photoH+10);
-                }
-                y += 80; 
-            }
-
-            if (notes.length > 0) {
-                doc.addPage(); y = margin; doc.setFontSize(16); doc.text("Field Notes", margin, y); y+=10; doc.setFontSize(10);
-                notes.forEach(n => {
-                    const text = doc.splitTextToSize(`[${n.dateString}] ${n.text}`, pW - (margin*2));
-                    if (y + (text.length*5) > 270) { doc.addPage(); y = margin; }
-                    doc.text(text, margin, y); y += (text.length * 5) + 5;
+                        img.src = URL.createObjectURL(blob);
+                    } catch(e) {
+                        fallback();
+                    }
                 });
             }
-            doc.save(`Report_${currentProject}.pdf`);
-        }
 
-        function initMap() {
-            if (typeof L === 'undefined' || !document.getElementById('map-container')) return;
-            if (!mapInstance) {
-                mapInstance = L.map('map-container').setView([39.8, -98.5], 4);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
-                markerGroup = L.layerGroup().addTo(mapInstance);
-            }
-            markerGroup.clearLayers();
-            let bounds = [];
-            cachedItems.forEach(item => {
-                if (item.lat && item.lng) {
-                    const m = L.marker([item.lat, item.lng]).bindPopup(item.caption || item.text);
-                    markerGroup.addLayer(m);
-                    bounds.push([item.lat, item.lng]);
-                }
-            });
-            if(bounds.length) mapInstance.fitBounds(bounds, {padding:[50,50]});
-        }
-
-        function renderReport(items) {
-            const feed = document.getElementById('report-feed');
-            feed.innerHTML = "";
-            let filtered = items.filter(i => currentReportFilter === 'all' || i.type === currentReportFilter);
-            filtered = filtered.sort((a,b) => currentSort === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
-
-            if(filtered.length === 0) { feed.innerHTML = `<div class="text-center text-gray-400 py-10">No items found.</div>`; return; }
-
-            filtered.forEach(item => {
-                const div = document.createElement('div');
-                div.className = "bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex";
+            // --- SKETCHING ---
+            openSketch() {
+                $('modal-sketch').classList.remove('hidden');
+                const canvas = $('sketch-canvas');
+                const wrap = $('sketch-wrapper');
+                canvas.width = wrap.clientWidth;
+                canvas.height = wrap.clientHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
                 
-                // UPDATED VISUAL SIDE FOR PHOTO TO OPEN MODAL
-                let left = item.type === 'note' 
-                    ? `<div class="w-16 bg-yellow-50 flex-shrink-0 flex items-center justify-center text-2xl">📝</div>` 
-                    : `<div class="w-1/3 bg-gray-100 flex-shrink-0 relative cursor-pointer group" onclick="window.openImageDetail('${item.id}')">
-                        <img src="${item.url}" class="absolute inset-0 w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition"></div>
-                        <div class="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1 rounded">🔍</div>
-                       </div>`;
-                       
-                // Added Download Button Logic (Both Standard and Raw)
-                let downloadBtn = '';
-                if (item.type === 'photo') {
-                    downloadBtn += `<button onclick="window.downloadSinglePhoto('${item.id}')" class="text-xs text-green-600 font-bold hover:underline">Download</button>`;
-                    if (item.rawStoragePath) {
-                        downloadBtn += `<button onclick="window.downloadRawPhoto('${item.id}')" class="text-xs text-orange-600 font-bold hover:underline ml-2">Raw</button>`;
+                this.bgImage = null; // Clear any previous background image
+                this.wbCtx = ctx;
+                this.isDrawing = false;
+
+                // Event Listeners (Pointer)
+                canvas.onpointerdown = (e) => { this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+                canvas.onpointermove = (e) => { 
+                    if(!this.isDrawing) return; 
+                    ctx.lineTo(e.offsetX, e.offsetY); 
+                    ctx.strokeStyle = $('sketch-color').value;
+                    ctx.lineWidth = $('sketch-size').value;
+                    ctx.stroke(); 
+                };
+                canvas.onpointerup = () => this.isDrawing = false;
+            }
+
+            closeSketch() { $('modal-sketch').classList.add('hidden'); }
+            
+            clearSketch() { 
+                const c = $('sketch-canvas'); 
+                const ctx = this.wbCtx;
+                
+                // 1. Clear to white
+                ctx.fillStyle = "#fff"; 
+                ctx.fillRect(0, 0, c.width, c.height); 
+                
+                // 2. If we have a background image (annotating), redraw it
+                if (this.bgImage) {
+                    const img = this.bgImage;
+                    const scale = Math.min(c.width / img.width, c.height / img.height);
+                    const x = (c.width / 2) - (img.width / 2) * scale;
+                    const y = (c.height / 2) - (img.height / 2) * scale;
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                }
+            }
+            
+            saveSketch() {
+                $('sketch-canvas').toBlob((blob) => {
+                    if (blob) {
+                        this.closeSketch();
+                        this.handleFileSelect(blob);
+                    } else {
+                        showToast("Error saving sketch");
+                    }
+                }, 'image/jpeg');
+            }
+            
+            annotateImage() {
+                // Takes current modal image and puts it on sketch canvas
+                const imgEl = $('modal-img-preview');
+                this.closeCaptionModal();
+                $('modal-sketch').classList.remove('hidden');
+                setTimeout(() => {
+                     const canvas = $('sketch-canvas');
+                     const wrap = $('sketch-wrapper');
+                     canvas.width = wrap.clientWidth;
+                     canvas.height = wrap.clientHeight;
+                     const ctx = canvas.getContext('2d');
+                     this.wbCtx = ctx;
+                     
+                     ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
+                     // Draw image centered/scaled
+                     const img = new Image();
+                     img.crossOrigin = "Anonymous";
+                     img.onload = () => {
+                         const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                         const x = (canvas.width / 2) - (img.width / 2) * scale;
+                         const y = (canvas.height / 2) - (img.height / 2) * scale;
+                         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                         
+                         // STORE IMAGE FOR CLEAR FUNCTION
+                         this.bgImage = img;
+                     };
+                     img.src = imgEl.src;
+                     
+                     // Re-bind drawing events (same as openSketch)
+                     this.isDrawing = false;
+                     canvas.onpointerdown = (e) => { this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+                     canvas.onpointermove = (e) => { 
+                        if(!this.isDrawing) return; 
+                        ctx.lineTo(e.offsetX, e.offsetY); 
+                        ctx.strokeStyle = $('sketch-color').value;
+                        ctx.lineWidth = $('sketch-size').value;
+                        ctx.stroke(); 
+                     };
+                     canvas.onpointerup = () => this.isDrawing = false;
+                }, 100);
+            }
+
+            // --- NOTES ---
+            openNotes() {
+                $('modal-notes').classList.remove('hidden');
+            }
+
+            closeNotes() {
+                $('modal-notes').classList.add('hidden');
+                $('note-title').value = '';
+                $('note-text').value = '';
+            }
+
+            async saveNote() {
+                const title = $('note-title').value.trim();
+                const text = $('note-text').value.trim();
+                if(!text && !title) return showToast("Empty Note");
+
+                const id = Date.now().toString();
+                const meta = {
+                    id, projectId: state.project, type: 'note',
+                    title, detailedDesc: text, text,
+                    timestamp: Date.now(), dateString: formatDate(Date.now()),
+                    lat: state.location?.lat, lng: state.location?.lng
+                };
+                
+                // OFFLINE NOTE
+                if(!state.online) {
+                    await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
+                    this.closeNotes();
+                    showToast("Note Saved (Offline)");
+                    return;
+                }
+
+                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
+                this.closeNotes();
+                showToast("Note Saved");
+                this.switchTab('report');
+            }
+
+            // --- REPORT & DATA ---
+            loadData() {
+                const q = query(collection(state.db, `artifacts/${appId}/public/data/images`), where("projectId", "==", state.project));
+                onSnapshot(q, (snap) => {
+                    state.items = [];
+                    snap.forEach(d => state.items.push(d.data()));
+                    state.items.sort((a,b) => b.timestamp - a.timestamp); // Newest first
+                    this.renderFeed();
+                });
+            }
+
+            renderFeed() {
+                const feed = $('report-feed');
+                feed.innerHTML = '';
+                const term = $('search-input').value.toLowerCase();
+
+                const filtered = state.items.filter(i => {
+                    if(state.filter !== 'all' && i.type !== state.filter) return false;
+                    if(term && !JSON.stringify(i).toLowerCase().includes(term)) return false;
+                    return true;
+                });
+
+                if(filtered.length === 0) {
+                    feed.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm">No entries found.</div>`;
+                    return;
+                }
+
+                filtered.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex transition hover:shadow-md";
+                    
+                    if(item.type === 'photo') {
+                        div.innerHTML = `
+                            <div class="w-24 h-24 bg-slate-200 relative cursor-pointer flex-none flex items-center justify-center text-slate-400" onclick="window.app.showDetail('${item.id}')">
+                                <i data-lucide="image" class="w-8 h-8 absolute"></i>
+                                <img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">
+                            </div>
+                            <div class="p-3 flex-1 flex flex-col justify-between overflow-hidden">
+                                <div>
+                                    <div class="flex justify-between items-start">
+                                        <div class="text-[10px] text-slate-400 font-mono mb-1">${item.dateString}</div>
+                                        <div class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Photo #${item.photoNumber||'?'}</div>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4>
+                                    <p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p>
+                                </div>
+                                <div class="flex justify-end gap-3 mt-2">
+                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button>
+                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                             <div class="w-2 bg-yellow-400 flex-none"></div>
+                             <div class="p-3 flex-1">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-[10px] text-slate-400 font-mono">${item.dateString}</span>
+                                    <i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i>
+                                </div>
+                                <h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4>
+                                <p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p>
+                                <div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2">
+                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button>
+                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
+                                </div>
+                             </div>
+                        `;
+                    }
+                    feed.appendChild(div);
+                });
+                lucide.createIcons();
+            }
+
+            setFilter(f) {
+                state.filter = f;
+                ['all','photo','note'].forEach(k => {
+                    const btn = $(`filter-${k}`);
+                    if(f===k) { btn.classList.remove('text-slate-500','hover:text-slate-700'); btn.classList.add('bg-white','shadow','text-slate-800'); }
+                    else { btn.classList.add('text-slate-500','hover:text-slate-700'); btn.classList.remove('bg-white','shadow','text-slate-800'); }
+                });
+                this.renderFeed();
+            }
+            
+            filterFeed() { this.renderFeed(); }
+
+            async deleteEntry(id) {
+                if(!confirm("Delete this entry?")) return;
+                const item = state.items.find(i => i.id === id);
+                toggleLoader(true, "Deleting...");
+                try {
+                    await deleteDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id));
+                    if(item.storagePath) await deleteObject(ref(state.storage, item.storagePath));
+                    if(item.rawStoragePath) await deleteObject(ref(state.storage, item.rawStoragePath));
+                    showToast("Deleted");
+                } catch(e) { showToast("Error deleting"); }
+                finally { toggleLoader(false); }
+            }
+
+            editEntry(id) {
+                const item = state.items.find(i => i.id === id);
+                if(!item) return;
+                state.currentItem = item;
+                if(item.type === 'photo') {
+                    this.openCaptionModal(item.url, true);
+                } else {
+                    // Quick alert prompt for note editing (simplification)
+                    const newText = prompt("Edit Note Text:", item.text);
+                    if(newText !== null) {
+                         setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), { text: newText, detailedDesc: newText }, { merge: true });
+                    }
+                }
+            }
+            
+            async updateEntry() {
+                const item = state.currentItem;
+                const newTitle = $('cap-title').value.trim();
+                const newDesc = $('cap-desc').value.trim();
+                const newCap = (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : newDesc;
+                
+                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), {
+                    title: newTitle, detailedDesc: newDesc, caption: newCap
+                }, { merge: true });
+                
+                this.closeCaptionModal();
+                showToast("Entry Updated");
+            }
+
+            // --- MAP ---
+            initMap() {
+                this.map = L.map('map-container').setView([39.8, -98.5], 4);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap &copy; CARTO',
+                    maxZoom: 20
+                }).addTo(this.map);
+                this.markers = L.layerGroup().addTo(this.map);
+            }
+
+            renderMapMarkers() {
+                if(!this.map || !this.markers) return;
+                this.markers.clearLayers();
+                const bounds = [];
+                state.items.forEach(i => {
+                    if(i.lat && i.lng) {
+                        const icon = L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<div style="background-color:${i.type==='photo'?'#2563eb':'#eab308'}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [12, 12],
+                            iconAnchor: [6, 6]
+                        });
+                        const m = L.marker([i.lat, i.lng], { icon }).bindPopup(`<b>${i.title||'Item'}</b><br>${i.dateString}`);
+                        this.markers.addLayer(m);
+                        bounds.push([i.lat, i.lng]);
+                    }
+                });
+                if(bounds.length) this.map.fitBounds(bounds, { padding: [50,50] });
+            }
+
+            centerMap() {
+                if(state.location && this.map) {
+                    this.map.setView([state.location.lat, state.location.lng], 16);
+                    L.marker([state.location.lat, state.location.lng], {
+                        icon: L.divIcon({ html: '<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow animate-pulse"></div>' })
+                    }).addTo(this.map);
+                } else {
+                    showToast("Waiting for GPS...");
+                }
+            }
+
+            // --- DETAIL VIEW ---
+            showDetail(id) {
+                const item = state.items.find(i => i.id === id);
+                if(!item) return;
+                $('det-img').src = item.url;
+                $('det-project').innerText = item.projectId;
+                $('det-id').innerText = item.id;
+                $('det-caption').innerText = item.caption;
+                $('det-date').innerText = item.dateString;
+                
+                const gpsEl = $('det-gps');
+                if(item.lat) {
+                    gpsEl.innerText = `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`;
+                    gpsEl.href = `https://www.google.com/maps?q=${item.lat},${item.lng}`;
+                } else {
+                    gpsEl.innerText = "No Data"; gpsEl.removeAttribute('href');
+                }
+                
+                $('det-dl-btn').onclick = () => this.downloadFile(item.url, `${item.projectId}_${item.id}.jpg`);
+                
+                const rawBtn = $('det-raw-btn');
+                if(item.rawStoragePath) {
+                    rawBtn.classList.remove('hidden');
+                    rawBtn.onclick = async () => {
+                         const url = await getDownloadURL(ref(state.storage, item.rawStoragePath));
+                         this.downloadFile(url, `${item.projectId}_${item.id}_RAW.jpg`);
+                    };
+                } else {
+                    rawBtn.classList.add('hidden');
+                }
+
+                $('detail-modal').classList.remove('hidden');
+            }
+
+            async downloadFile(url, name) {
+                try {
+                    const r = await fetch(url);
+                    const b = await r.blob();
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                } catch(e) { alert("Download failed"); }
+            }
+
+            // --- FILES ---
+            async refreshFiles() { this.loadFiles(state.path); }
+            async loadFiles(path) {
+                const grid = $('file-grid');
+                $('browser-path').innerText = path;
+                grid.innerHTML = '<div class="col-span-full text-center text-xs text-slate-400">Loading...</div>';
+                
+                try {
+                    const res = await listAll(ref(state.storage, path));
+                    grid.innerHTML = '';
+                    
+                    // Folders
+                    res.prefixes.forEach(p => {
+                        const el = document.createElement('div');
+                        el.className = "bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100 aspect-square";
+                        el.onclick = () => this.loadFiles(p.fullPath);
+                        el.innerHTML = `<i data-lucide="folder" class="w-8 h-8 text-yellow-500 mb-2"></i><span class="text-[10px] font-bold text-yellow-800 truncate w-full text-center">${p.name}</span>`;
+                        grid.appendChild(el);
+                    });
+
+                    // Files
+                    for(const item of res.items) {
+                         const url = await getDownloadURL(item);
+                         const el = document.createElement('div');
+                         el.className = "bg-white border border-slate-200 rounded-lg overflow-hidden relative group aspect-square";
+                         el.innerHTML = `
+                            <img src="${url}" class="w-full h-full object-cover">
+                            <a href="${url}" target="_blank" class="absolute inset-0"></a>
+                            <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] p-1 truncate">${item.name}</div>
+                         `;
+                         grid.appendChild(el);
+                    }
+                    if(!res.prefixes.length && !res.items.length) grid.innerHTML = '<div class="col-span-full text-center text-xs text-slate-300 py-10">Empty Folder</div>';
+                    lucide.createIcons();
+                    state.path = path;
+                } catch(e) { grid.innerHTML = `<div class="text-red-500 text-xs">Error loading files</div>`; }
+            }
+            
+            fileBrowserUp() {
+                const parts = state.path.split('/');
+                if(parts.length > 1) { parts.pop(); this.loadFiles(parts.join('/')); }
+            }
+
+            // --- EXPORTS ---
+            async genPDF() {
+                toggleLoader(true, "Generating PDF...");
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                let y = 20;
+                const pageWidth = doc.internal.pageSize.getWidth();
+                
+                // Title Page
+                doc.setFontSize(22); 
+                doc.text("Field Inspection Report", pageWidth/2, 40, {align:'center'});
+                
+                doc.setFontSize(14); 
+                doc.text(`Project: ${state.project}`, pageWidth/2, 55, {align:'center'});
+                doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth/2, 65, {align:'center'});
+                
+                // Footer helper
+                const addFooter = (pageNum) => {
+                    doc.setFontSize(8);
+                    doc.text(`Page ${pageNum}`, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
+                };
+
+                let pageNum = 1;
+                addFooter(pageNum);
+
+                // 1. Photos & Sketches
+                const photos = state.items.filter(i => i.type === 'photo');
+                if(photos.length > 0) {
+                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
+                    doc.setFontSize(16); doc.text("Photo Log", 15, y); y += 15;
+                    
+                    for(let i=0; i<photos.length; i++) {
+                        const p = photos[i];
+                        // Check space: Image (100) + Text (20) + Margin (10) = ~130
+                        if(y + 130 > doc.internal.pageSize.getHeight()) { 
+                            doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
+                        }
+                        
+                        try {
+                            const imgData = await this.urlToBase64(p.url);
+                            doc.addImage(imgData, 'JPEG', 20, y, 170, 100); // W=170, H=100 (aspect ratio might vary, but fixed for report)
+                            
+                            // Draw border
+                            doc.setDrawColor(200); doc.rect(20, y, 170, 100);
+                            
+                            y += 105;
+                            doc.setFontSize(10); 
+                            doc.setFont("helvetica", "bold");
+                            doc.text(`Photo #${p.photoNumber || (i+1)}`, 20, y);
+                            
+                            doc.setFont("helvetica", "normal");
+                            const dateStr = p.dateString || new Date(p.timestamp).toLocaleString();
+                            doc.text(dateStr, 190, y, {align:'right'});
+                            
+                            y += 5;
+                            doc.setFontSize(9);
+                            const caption = p.caption || p.detailedDesc || "No caption";
+                            const splitText = doc.splitTextToSize(caption, 170);
+                            doc.text(splitText, 20, y);
+                            
+                            y += (splitText.length * 5) + 10;
+                        } catch(e) {
+                            console.error("PDF Image Error", e);
+                        }
                     }
                 }
 
-                div.innerHTML = `${left}
-                <div class="p-3 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="text-xs text-gray-400 mb-1 flex justify-between">
-                            <span>${item.dateString}</span>
-                            ${item.lat ? `<span class="text-blue-500">📍 ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}</span>` : ''}
-                        </div>
-                        <p class="text-sm font-medium">${item.caption || item.text}</p>
-                    </div>
-                    <div class="flex justify-end gap-2 mt-2 items-center">
-                        ${downloadBtn}
-                        <button onclick="window.openEditorModal('${item.id}','${item.type}')" class="text-xs text-blue-500 font-bold hover:underline">Edit</button>
-                        <button onclick="window.deleteEntry('${item.id}','${item.storagePath}')" class="text-xs text-red-500 font-bold hover:underline">Delete</button>
-                    </div>
-                </div>`;
-                feed.appendChild(div);
-            });
-        }
-
-        function loadReport() {
-            const q = query(collection(db, `artifacts/${appId}/public/data/images`), where("projectId", "==", currentProject));
-            onSnapshot(q, (s) => { 
-                cachedItems = []; s.forEach(d=>cachedItems.push(d.data())); 
-                renderReport(cachedItems); 
-                if(document.getElementById('tab-map').style.display === 'block') initMap();
-            }, (error) => {
-                console.error("Error fetching documents: ", error);
-                showToast("Error fetching data");
-            });
-        }
-
-        function filterReport(txt) {
-            const lower = txt.toLowerCase();
-            const cards = document.querySelectorAll('#report-feed > div');
-            cards.forEach(c => { c.style.display = c.innerText.toLowerCase().includes(lower) ? 'flex' : 'none'; });
-        }
-
-        // --- GLOBAL EXPORTS (Before Init) ---
-        window.loadBrowser = loadBrowser; 
-        window.cancelUpload = () => { 
-            if(isSeriesMode && confirm("Discard queue?")) seriesPhotoQueue=[]; 
-            document.getElementById('caption-modal').classList.add('hidden'); 
-        };
-        
-        window.toggleSeriesMode = () => {
-            isSeriesMode = !isSeriesMode;
-            const btn = document.getElementById('series-mode-btn');
-            const label = document.getElementById('photo-capture-label');
-
-            btn.classList.toggle('active', isSeriesMode);
-            btn.innerHTML = isSeriesMode ? '<span id="series-icon">⏺</span> Stop Recording' : '<span id="series-icon">🔄</span> Enable Photo Series';
-            label.innerText = isSeriesMode ? `Series Active: ${seriesPhotoQueue.length} photos` : 'Tap to Capture Photo';
-            
-            if (!isSeriesMode && seriesPhotoQueue.length > 0) {
-                openBatchCaptionModal();
-            } else if (!isSeriesMode && seriesPhotoQueue.length === 0) {
-                label.innerText = 'Tap to Capture Photo';
-            }
-        };
-
-        window.handleCameraInput = (e) => {
-            const file = e.target.files[0]; if(!file) return; pendingBlob=file;
-            e.target.value = ""; // Clear input immediately
-            
-            if (isSeriesMode) {
-                const id = Date.now().toString();
-                seriesPhotoQueue.push({ id, blob: pendingBlob, base64: null, timestamp: new Date() });
-                showToast(`Photo #${seriesPhotoQueue.length} Added`);
-                document.getElementById('photo-capture-label').innerText = `Series Active: ${seriesPhotoQueue.length} photos`;
-                
-                blobToBase64(file).then(b => { 
-                    const item = seriesPhotoQueue.find(x=>x.id === id);
-                    if(item) item.base64 = b; 
-                });
-                return;
-            }
-            const url = URL.createObjectURL(file);
-            document.getElementById('modal-img-preview').src=url;
-            document.getElementById('modal-caption-title').value="";
-            document.getElementById('modal-caption-desc').value="";
-            // FIX: Use 'label' instead of 'h3' to match HTML structure
-            document.querySelector('#caption-modal label').innerText = "Photo Caption";
-            document.getElementById('modal-save-btn').innerText = "Save & Upload";
-            document.getElementById('caption-modal').classList.remove('hidden');
-            blobToBase64(file).then(b=>{pendingBase64=b});
-        };
-
-        function openBatchCaptionModal() {
-             document.getElementById('modal-img-preview').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTUgMTdoMTRhMiAyIDAgMCAwIDItMlY3YTIgMiAwIDAgMC0yLTJINWEyIDIgMCAwIDAtMiAydjEwYTIgMiAwIDAgMCAyIDJ6TTggMTBiLjg5IDAgMS42NDguNTIgMiAxdjJhMiAyIDAgMCAwIDIgMEg2YTIgMiAwIDAgMC0yLTJWOGEuOTEgLjkxIDAgMCAxIC4wNy0uMzdjLjA0LS4xLjE0LS4yLjItLjI3LjEtLjA3LjIyLS4xMS4zNi0uMTRIMiIgLz48L3N2Zz4=';
-             document.getElementById('modal-caption-title').value = "";
-             document.getElementById('modal-caption-desc').value = "";
-             document.querySelector('#caption-modal label').innerText = `Batch Caption for ${seriesPhotoQueue.length} Photos`;
-             document.getElementById('modal-save-btn').innerText = `Upload ${seriesPhotoQueue.length} Photos`;
-             document.getElementById('caption-modal').classList.remove('hidden');
-        }
-        
-        window.openBatchCaptionModal = openBatchCaptionModal; // Expose
-
-        window.openEditorModal = (id, type) => { 
-            currentEditingItem = cachedItems.find(i=>i.id===id); 
-            document.getElementById('editor-modal').classList.remove('hidden'); 
-            
-            if(type === 'photo') {
-                document.getElementById('editor-photo-preview').classList.remove('hidden');
-                document.getElementById('editor-preview-img').src = currentEditingItem.url;
-                
-                // Populate split fields
-                document.getElementById('editor-title-input').value = currentEditingItem.title || "";
-                document.getElementById('editor-desc-input').value = currentEditingItem.detailedDesc || currentEditingItem.caption;
-                
-                // Show/Hide Regen button
-                const regenBtn = document.getElementById('editor-regen-btn');
-                if(currentEditingItem.rawStoragePath) {
-                    regenBtn.classList.remove('hidden');
-                } else {
-                    regenBtn.classList.add('hidden');
-                }
-            } else {
-                document.getElementById('editor-photo-preview').classList.add('hidden');
-                document.getElementById('editor-title-input').value = "";
-                document.getElementById('editor-desc-input').value = currentEditingItem.text;
-                document.getElementById('editor-regen-btn').classList.add('hidden');
-            }
-        };
-        
-        window.closeEditorModal = () => document.getElementById('editor-modal').classList.add('hidden');
-        
-        window.updateLogEntry = async () => { 
-            const newTitle = document.getElementById('editor-title-input').value.trim();
-            const newDesc = document.getElementById('editor-desc-input').value.trim();
-            
-            let updateData = {};
-            if(currentEditingItem.type === 'photo') {
-                let newCaption = newDesc;
-                if(newTitle) newCaption = `${newTitle} - ${newDesc}`;
-                updateData = { caption: newCaption, title: newTitle, detailedDesc: newDesc };
-            } else {
-                updateData = { text: newDesc };
-            }
-            
-            await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), updateData, {merge:true}); 
-            window.closeEditorModal(); 
-        };
-        
-        window.deleteEntry = async (id, path) => { if(confirm("Delete?")) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/images`, id)); if(path) deleteObject(ref(storage, path)); } };
-        window.switchTab = (id) => { 
-            document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active')); document.getElementById(`tab-${id}`).classList.add('active'); 
-            document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active','text-blue-600')); document.getElementById(`nav-${id}`).classList.add('active','text-blue-600');
-            if(id==='map') setTimeout(initMap, 200);
-            if(id==='files') loadBrowser(browserPath);
-            // Sketch tab logic removed
-        }
-        window.updateProjectID = (v) => { currentProject=v; document.getElementById('project-header').innerText=`Project: ${v}`; loadReport(); };
-        window.toggleNewProjectInput = () => document.getElementById('new-project-div').classList.toggle('hidden');
-        window.createNewProject = () => { const v=document.getElementById('new-project-input').value; if(v){ addProjectToSet(v); window.switchProject(v); } };
-        window.switchProject = (v) => { currentProject=v; localStorage.setItem('fc_active_project',v); updateProjectHeader(); loadReport(); };
-        window.setSortOrder = (o) => { currentSort=o; renderReport(cachedItems); };
-        window.browserUp = () => { const p=browserPath.split('/'); if(p.length>1){p.pop();loadBrowser(p.join('/'));} };
-        window.refreshBrowser = () => loadBrowser(browserPath);
-        window.copyStorageRules = () => navigator.clipboard.writeText(document.getElementById('st-rules').innerText);
-        window.importLegacyFiles = async () => { if(confirm("Scan storage?")) { const scan=async(r,pn)=>{const l=await listAll(r);for(const f of l.items){const id=f.name.split('.')[0];const u=await getDownloadURL(f);await setDoc(doc(db,`artifacts/${appId}/public/data/images`,id),{id,projectId:pn||"Unsorted",url:u,storagePath:f.fullPath,caption:"Imported",timestamp:Date.now(),dateString:"Imported"},{merge:true});}for(const p of l.prefixes){addProjectToSet(p.name);await scan(p,p.name);}}; await scan(ref(storage,`artifacts/${appId}/public/data/files`),"Unsorted"); alert("Done"); } };
-        
-        window.setReportFilter = (filter) => {
-            currentReportFilter = filter;
-            const btns = { 'photo': 'nav-log-photos', 'note': 'nav-log-notes', 'all': 'nav-log-all' };
-            for (const key in btns) {
-                const el = document.getElementById(btns[key]);
-                if(el) { el.classList.remove('active'); if(key===filter) el.classList.add('active'); }
-            }
-            const btnPhotos = document.getElementById('download-photos-btn');
-            const btnNotes = document.getElementById('download-notes-btn');
-            const btnRaw = document.getElementById('download-raw-photos-btn');
-            
-            if(btnPhotos) btnPhotos.classList.toggle('hidden', filter === 'note');
-            if(btnNotes) btnNotes.classList.toggle('hidden', filter === 'photo');
-            if(btnRaw) btnRaw.classList.toggle('hidden', filter === 'note');
-            
-            renderReport(cachedItems);
-        };
-
-        window.generateReportPDF = async () => {
-            setLoading(true, "Generating Report...");
-            try { await _generatePDF_Core(); } catch(e) { console.error(e); alert("PDF Error"); } finally { setLoading(false); }
-        };
-
-        window.downloadAllPhotosZip = async () => {
-            const photos = cachedItems.filter(i => i.type === 'photo');
-            if (photos.length === 0) return alert("No photos.");
-            setLoading(true, "Zipping...");
-            try {
-                const zip = new JSZip();
-                const promises = photos.map(async p => { if(p.storagePath) { const r=await fetch(p.url); const b=await r.blob(); zip.file(`${p.projectId}_${p.id}.jpg`, b); } });
-                await Promise.all(promises);
-                const c = await zip.generateAsync({type:"blob"});
-                saveAs(c, `${currentProject}_Photos.zip`);
-            } catch(e) { console.error(e); alert("Zip Failed"); } finally { setLoading(false); }
-        };
-        
-        window.downloadAllRawPhotosZip = async () => {
-            const photos = cachedItems.filter(i => i.type === 'photo' && i.rawStoragePath);
-            if (photos.length === 0) return alert("No raw photos found for this project.");
-            setLoading(true, "Zipping Raw Files...");
-            try {
-                const zip = new JSZip();
-                const promises = photos.map(async p => {
-                     // Need to get download URL for raw path first
-                     const url = await getDownloadURL(ref(storage, p.rawStoragePath));
-                     const r = await fetch(url);
-                     const b = await r.blob();
-                     zip.file(`${p.projectId}_${p.id}_RAW.jpg`, b);
-                });
-                await Promise.all(promises);
-                const c = await zip.generateAsync({type:"blob"});
-                saveAs(c, `${currentProject}_Raw_Photos.zip`);
-            } catch(e) { console.error(e); alert("Raw Zip Failed: " + e.message); } finally { setLoading(false); }
-        };
-
-        // NEW: Download Single Photo
-        window.downloadSinglePhoto = async (id) => {
-            const item = cachedItems.find(i => i.id === id);
-            if (!item || !item.url) return alert("Photo not found.");
-            
-            try {
-                setLoading(true, "Downloading...");
-                const resp = await fetch(item.url);
-                const blob = await resp.blob();
-                saveAs(blob, `${item.projectId}_${item.id}.jpg`);
-            } catch(e) {
-                console.error(e);
-                alert("Download failed.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        // NEW: Download RAW Photo
-        window.downloadRawPhoto = async (id) => {
-            const item = cachedItems.find(i => i.id === id);
-            if (!item || !item.rawStoragePath) return alert("Raw photo not found.");
-
-            try {
-                setLoading(true, "Fetching Raw Photo...");
-                const url = await getDownloadURL(ref(storage, item.rawStoragePath));
-                const resp = await fetch(url);
-                const blob = await resp.blob();
-                saveAs(blob, `${item.projectId}_${item.id}_RAW.jpg`);
-            } catch(e) {
-                console.error(e);
-                alert("Download failed.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        // NEW: Generate CSV Report
-        window.generateCSVReport = () => {
-            if (cachedItems.length === 0) return alert("No data to export.");
-            
-            // Sort by timestamp (oldest to newest usually better for raw data, but matching sort order is fine)
-            // Let's stick to chronological order for raw data exports as it's standard
-            const sorted = [...cachedItems].sort((a, b) => a.timestamp - b.timestamp);
-
-            let csv = "ID,Type,Date,Time,Project,Photo_Number,Title,Description,Latitude,Longitude,Heading,Weather,Image_URL\n";
-            
-            const clean = (text) => {
-                if (!text) return "";
-                // Escape quotes by doubling them, wrap field in quotes
-                return `"${String(text).replace(/"/g, '""')}"`; 
-            };
-
-            sorted.forEach(item => {
-                const d = new Date(item.timestamp);
-                const dateStr = d.toLocaleDateString();
-                const timeStr = d.toLocaleTimeString();
-                
-                const desc = item.detailedDesc || item.caption || item.text || "";
-                const wx = item.weather ? `${item.weather.desc} ${item.weather.temp}` : "";
-                const hdg = item.heading !== null && item.heading !== undefined ? Math.round(item.heading) : "";
-
-                const row = [
-                    item.id,
-                    item.type,
-                    clean(dateStr),
-                    clean(timeStr),
-                    clean(item.projectId),
-                    item.photoNumber || "",
-                    clean(item.title),
-                    clean(desc),
-                    item.lat || "",
-                    item.lng || "",
-                    hdg,
-                    clean(wx),
-                    clean(item.url)
-                ].join(",");
-                
-                csv += row + "\n";
-            });
-
-            saveAs(new Blob([csv], {type: 'text/csv;charset=utf-8'}), `${currentProject}_Export.csv`);
-        };
-
-        window.downloadNotesTextReport = () => {
-            const notes = cachedItems.filter(i => i.type === 'note');
-            if (notes.length === 0) return alert("No notes.");
-            let txt = `NOTES REPORT - ${currentProject}\n\n`;
-            notes.forEach(n => { txt += `[${n.dateString}]\n${n.text}\n-----------------\n`; });
-            saveAs(new Blob([txt],{type:'text/plain'}), `${currentProject}_Notes.txt`);
-        };
-
-        window.regenerateOverlay = async () => {
-            if(!currentEditingItem || !currentEditingItem.rawStoragePath) return;
-            if(!confirm("This will permanently overwrite the photo text with your new edits. Continue?")) return;
-            
-            setLoading(true, "Regenerating Overlay...");
-            try {
-                // 1. Get raw image URL
-                const rawUrl = await getDownloadURL(ref(storage, currentEditingItem.rawStoragePath));
-                const rawResp = await fetch(rawUrl);
-                const rawBlob = await rawResp.blob();
-                
-                // 2. Get new text
-                const newTitle = document.getElementById('editor-title-input').value.trim();
-                const newDesc = document.getElementById('editor-desc-input').value.trim();
-                let newCaption = newDesc;
-                if(newTitle) newCaption = `${newTitle} - ${newDesc}`;
-                
-                // 3. Process
-                const meta = {
-                    projectId: currentEditingItem.projectId,
-                    id: currentEditingItem.id,
-                    timestamp: currentEditingItem.timestamp,
-                    lat: currentEditingItem.lat,
-                    lng: currentEditingItem.lng,
-                    weather: currentEditingItem.weather,
-                    caption: newCaption,
-                    seriesIndex: currentEditingItem.seriesIndex,
-                    photoNumber: String(currentEditingItem.photoNumber || "").padStart(3, '0'),
-                    heading: currentEditingItem.heading // Preserve heading if available
-                };
-                const newImageBlob = await processImageWithOverlay(rawBlob, meta);
-                
-                // 4. Upload (Overwrite existing)
-                const processedRef = ref(storage, currentEditingItem.storagePath);
-                await uploadBytes(processedRef, newImageBlob); // Removed explicit contentType
-                
-                // 5. Get fresh URL & Update Firestore
-                const newUrl = await getDownloadURL(processedRef);
-                await setDoc(doc(db, `artifacts/${appId}/public/data/images`, currentEditingItem.id), {
-                    caption: newCaption,
-                    title: newTitle,
-                    detailedDesc: newDesc,
-                    url: newUrl
-                }, {merge: true});
-                
-                // 6. Refresh UI with cache busting
-                document.getElementById('editor-preview-img').src = newUrl + '?t=' + Date.now(); 
-                
-                showToast("Overlay Updated!");
-            } catch(e) {
-                console.error(e);
-                alert("Regeneration Failed: " + e.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        // Helper to sanitize project IDs for storage paths
-        // function sanitizeFilename(name) { return name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); }
-        
-        // Delete Raw File Helper
-        window.deleteRawFile = async (fullPath) => {
-            if(!confirm("Are you sure you want to permanently delete this file? This cannot be undone.")) return;
-            setLoading(true, "Deleting file...");
-            try {
-                await deleteObject(ref(storage, fullPath));
-                showToast("File deleted");
-                loadBrowser(browserPath); // Refresh current view
-            } catch(e) {
-                console.error(e);
-                alert("Delete failed: " + e.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        window.confirmUpload = async () => {
-             if(!user) return alert("Error: No user found.");
-             let itemsToProcess = [];
-             
-             // Get Caption Parts
-             const title = document.getElementById('modal-caption-title').value.trim();
-             const desc = document.getElementById('modal-caption-desc').value.trim();
-             let caption = desc;
-             if (title) caption = `${title} - ${desc}`;
-             if (!caption) caption = "No Caption";
-
-             if (seriesPhotoQueue.length > 0) {
-                 itemsToProcess = seriesPhotoQueue.map((p, index) => ({ 
-                    blob: p.blob, 
-                    id: p.id, 
-                    caption: caption,
-                    timestamp: p.timestamp,
-                    seriesIndex: `Photo ${index + 1} of ${seriesPhotoQueue.length}`
-                 }));
-                 seriesPhotoQueue = [];
-                 document.getElementById('photo-capture-label').innerText = "Tap to Capture Photo";
-             } else if (pendingBlob) {
-                 itemsToProcess.push({ blob: pendingBlob, id: Date.now().toString(), caption: caption, timestamp: new Date(), seriesIndex: null });
-                 pendingBlob = null;
-             } else { return alert("No photo ready."); }
-             
-             setLoading(true, `Processing & Uploading ${itemsToProcess.length} files...`);
-             const doBurn = document.getElementById('burn-text-toggle').checked;
-             
-             // Calculate max photo number
-             const existingPhotos = cachedItems.filter(i => i.type === 'photo');
-             const maxNum = existingPhotos.reduce((max, item) => Math.max(max, item.photoNumber || 0), 0);
-
-             try {
-                 const uploads = itemsToProcess.map(async (item, index) => {
-                     let finalBlob = item.blob;
-                     const thisNum = maxNum + index + 1;
-                     const photoIdStr = String(thisNum).padStart(3, '0');
-                     
-                     // 1. Upload RAW - CHANGED to use flat structure
-                     // Removed sanitizeFilename - use currentProject directly
-                     const rawPath = `artifacts/${appId}/public/data/files/${currentProject}/raw_${item.id}.jpg`;
-                     await uploadBytes(ref(storage, rawPath), item.blob, { contentType: 'image/jpeg' });
-
-                     // 2. Burn text if toggle is on
-                     if (doBurn) {
-                        const meta = {
-                            projectId: currentProject,
-                            id: item.id,
-                            timestamp: item.timestamp,
-                            lat: currentLocation?.lat,
-                            lng: currentLocation?.lng,
-                            weather: currentWeather,
-                            caption: item.caption,
-                            seriesIndex: item.seriesIndex,
-                            photoNumber: photoIdStr,
-                            heading: currentHeading // Add heading to metadata
-                        };
-                        finalBlob = await processImageWithOverlay(item.blob, meta);
-                     }
-
-                     // Upload Processed - CHANGED to use flat structure
-                     // Removed sanitizeFilename - use currentProject directly
-                     const path = `artifacts/${appId}/public/data/files/${currentProject}/${item.id}.jpg`;
-                     const snap = await uploadBytes(ref(storage, path), finalBlob, { contentType: 'image/jpeg' });
-                     const url = await getDownloadURL(snap.ref);
-                     
-                     await setDoc(doc(db, `artifacts/${appId}/public/data/images`, item.id), {
-                         id: item.id, type:'photo', projectId:currentProject, url, storagePath:path, caption:item.caption, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null, photoNumber: thisNum, rawStoragePath: rawPath, heading: currentHeading
-                     });
-                 });
-                 await Promise.all(uploads);
-                 addProjectToSet(currentProject);
-                 document.getElementById('caption-modal').classList.add('hidden');
-                 isSeriesMode = false;
-                 document.getElementById('series-mode-btn').classList.remove('active');
-                 document.getElementById('series-mode-btn').innerHTML = '<span id="series-icon">🔄</span> Enable Photo Series';
-                 switchTab('report');
-             } catch(e) { alert("Upload Failed: " + e.message); } finally { setLoading(false); }
-        };
-
-        window.confirmQuickNote = async () => { 
-             const title = document.getElementById('quick-note-title').value.trim();
-             const desc = document.getElementById('quick-note-desc').value.trim();
-             if(!desc && !title) return;
-             
-             let txt = desc;
-             if (title) txt = `${title} - ${desc}`;
-
-             await setDoc(doc(db, `artifacts/${appId}/public/data/images`, Date.now().toString()), {
-                 id: Date.now().toString(), type:'note', projectId:currentProject, text:txt, title:title, detailedDesc:desc, timestamp:Date.now(), dateString:new Date().toLocaleString(), lat:currentLocation?.lat || null, lng:currentLocation?.lng || null
-             });
-             document.getElementById('quick-note-title').value="";
-             document.getElementById('quick-note-desc').value="";
-             loadReport();
-        };
-        
-        function addProjectToSet(p){ knownProjects.add(p); localStorage.setItem('fc_projects', JSON.stringify(Array.from(knownProjects))); renderProjectOptions(); }
-        function renderProjectOptions() { const s=document.getElementById('project-select'); s.innerHTML=''; Array.from(knownProjects).sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.text=p;if(p===currentProject)o.selected=true;s.appendChild(o)}); }
-        function updateProjectHeader() { document.getElementById('project-header').innerText=`Project: ${currentProject}`; }
-
-        async function syncProjectList() {
-            try {
-                // Changed from 'files' to 'images' or ensure consistency? 
-                // The previous prompt said to use 'files'.
-                const rootRef = ref(storage, `artifacts/${appId}/public/data/files`);
-                const res = await listAll(rootRef);
-                res.prefixes.forEach((folderRef) => {
-                    // folderRef.name is the sanitized project name.
-                    // We might want to store the mapping if possible, but for now just adding it.
-                    addProjectToSet(folderRef.name);
-                });
-            } catch (e) {
-                console.warn("Project sync failed", e);
-            }
-        }
-
-        // --- INIT ---
-        async function init() {
-            const app = initializeApp(config);
-            auth = getAuth(app); db = getFirestore(app); storage = getStorage(app);
-
-            onAuthStateChanged(auth, (u) => {
-                user = u;
-                updateStatus(u ? 'online' : 'offline');
-                if(u) {
-                    loadReport();
-                    browserPath = `artifacts/${appId}/public/data/files`;
-                    loadBrowser(browserPath);
-                }
-            });
-
-            const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-            if (token) { try { await signInWithCustomToken(auth, token); } catch { await signInAnonymously(auth); } }
-            else { await signInAnonymously(auth); }
-
-            document.getElementById('camera-input').onchange = window.handleCameraInput; // FIXED REFERENCE
-            document.getElementById('report-search').oninput = (e) => filterReport(e.target.value);
-            
-            // Watch GPS & Weather
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
-                    (p) => {
-                        currentLocation = { lat: p.coords.latitude, lng: p.coords.longitude };
-                        // Update UI to Green
-                        const el = document.getElementById('gps-status');
-                        if (el) {
-                            el.innerText = `${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`;
-                            el.classList.remove('text-orange-500', 'text-red-500');
-                            el.classList.add('text-green-600');
+                // 2. Field Notes
+                const notes = state.items.filter(i => i.type === 'note');
+                if(notes.length > 0) {
+                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
+                    doc.setFontSize(16); doc.text("Field Notes", 15, y); y += 15;
+                    
+                    notes.forEach((n, idx) => {
+                        if(y + 40 > doc.internal.pageSize.getHeight()) { 
+                            doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                         }
-                        // Update weather occasionally if not set
-                        if(!currentWeather.temp) fetchWeather(p.coords.latitude, p.coords.longitude);
-                    },
-                    (err) => {
-                        // Handle Errors
-                        console.warn("GPS Error", err);
-                        const el = document.getElementById('gps-status');
-                        if (el) {
-                            let msg = "No Signal";
-                            if (err.code === 1) msg = "Permission Denied";
-                            if (err.code === 2) msg = "Pos Unavailable";
-                            if (err.code === 3) msg = "Timeout";
-                            el.innerText = msg;
-                            el.classList.remove('text-orange-500', 'text-green-600');
-                            el.classList.add('text-red-500');
-                        }
-                    },
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-                );
-            } else {
-                const el = document.getElementById('gps-status');
-                if(el) {
-                    el.innerText = "Not Supported";
-                    el.classList.add('text-red-500');
+                        
+                        doc.setDrawColor(220); doc.setFillColor(248, 250, 252);
+                        doc.roundedRect(15, y, 180, 0, 2, 2); // Background placeholder
+                        
+                        const startY = y;
+                        y += 5;
+                        
+                        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+                        doc.text(n.title || "Note", 20, y);
+                        
+                        doc.setFontSize(9); doc.setFont("helvetica", "normal");
+                        doc.text(n.dateString, 185, y, {align:'right'});
+                        
+                        y += 7;
+                        const desc = n.text || n.detailedDesc || "";
+                        const splitDesc = doc.splitTextToSize(desc, 170);
+                        doc.text(splitDesc, 20, y);
+                        
+                        y += (splitDesc.length * 5) + 10;
+                        
+                        // Draw box around the item
+                        const height = y - startY - 5;
+                        doc.rect(15, startY, 180, height);
+                        y += 5;
+                    });
                 }
-            }
-            
-            // Try to initialize compass if permission is already granted (or not needed)
-            if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
-                 window.addEventListener('deviceorientationabsolute', handleOrientation);
-                 window.addEventListener('deviceorientation', handleOrientation);
-                 document.getElementById('compass-status').innerText = "Active";
+                
+                doc.save(`${state.project}_Report.pdf`);
+                toggleLoader(false);
             }
 
-            updateProjectHeader(); renderProjectOptions();
-            syncProjectList(); // SYNC PROJECTS ON LOAD
-            setTimeout(() => window.setReportFilter(currentReportFilter), 100);
+            async genCSV() {
+                const rows = [["ID","Type","Date","Title","Description","Lat","Lng","URL"]];
+                state.items.forEach(i => {
+                    rows.push([
+                        i.id, i.type, i.dateString, i.title||'', (i.detailedDesc||i.text||'').replace(/,/g, ';'), 
+                        i.lat||'', i.lng||'', i.url||''
+                    ]);
+                });
+                const csv = rows.map(r => r.join(",")).join("\n");
+                const b = new Blob([csv], {type:'text/csv'});
+                const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${state.project}.csv`;
+                a.click();
+            }
+
+            async genZip() { this._zipHelper(state.items.filter(i=>i.type==='photo'), 'Photos'); }
+            async genRawZip() { this._zipHelper(state.items.filter(i=>i.type==='photo' && i.rawStoragePath), 'Raw', true); }
+
+            async _zipHelper(list, name, isRaw=false) {
+                if(!list.length) return showToast("No items");
+                toggleLoader(true, "Zipping...");
+                const zip = new JSZip();
+                for(const i of list) {
+                    try {
+                        const u = isRaw ? await getDownloadURL(ref(state.storage, i.rawStoragePath)) : i.url;
+                        const b = await (await fetch(u)).blob();
+                        zip.file(`${i.projectId}_${i.id}${isRaw?'_RAW':''}.jpg`, b);
+                    } catch(e){}
+                }
+                const c = await zip.generateAsync({type:"blob"});
+                const a = document.createElement('a'); a.href = URL.createObjectURL(c); a.download = `${state.project}_${name}.zip`;
+                a.click();
+                toggleLoader(false);
+            }
+
+            urlToBase64(url) {
+                return new Promise((r, j) => {
+                    const img = new Image(); img.crossOrigin='Anonymous';
+                    img.onload = () => {
+                        const c = document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+                        c.getContext('2d').drawImage(img,0,0); r(c.toDataURL('image/jpeg'));
+                    };
+                    img.onerror = j; img.src = url;
+                });
+            }
         }
 
-        init();
+        // Initialize
+        window.onload = () => { window.app = new FieldApp(); };
     </script>
 </body>
 </html>
