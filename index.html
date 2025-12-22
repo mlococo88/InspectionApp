@@ -297,6 +297,9 @@
             <div class="flex items-center gap-3">
                 <input type="color" id="sketch-color" value="#ef4444" class="w-8 h-8 rounded-full overflow-hidden border-0 p-0 cursor-pointer">
                 <input type="range" id="sketch-size" min="2" max="15" value="4" class="w-24 accent-blue-600">
+                <div class="w-px h-6 bg-slate-300 mx-1"></div>
+                <button onclick="window.app.toggleEraser()" id="btn-eraser" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition" title="Eraser"><i data-lucide="eraser" class="w-5 h-5"></i></button>
+                <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition" title="Undo"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
             </div>
             <button onclick="window.app.saveSketch()" class="text-blue-600 font-bold text-sm">Done</button>
         </div>
@@ -519,6 +522,9 @@
                 this.markers = null;
                 this.wbCtx = null;
                 this.bgImage = null; // Store background image for clearing sketch
+                this.undoStack = []; // Stack for undo feature
+                this.isEraser = false; // Eraser mode toggle
+                this.lastColor = '#ef4444'; // Default color
                 this.offlineMgr = new OfflineManager();
                 this.initFirebase();
                 this.initSensors();
@@ -1330,9 +1336,16 @@
                 this.bgImage = null; // Clear any previous background image
                 this.wbCtx = ctx;
                 this.isDrawing = false;
+                this.undoStack = []; // Reset Undo Stack on open
 
                 // Event Listeners (Pointer)
-                canvas.onpointerdown = (e) => { this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+                canvas.onpointerdown = (e) => { 
+                    // SAVE STATE BEFORE STARTING NEW STROKE
+                    this.undoStack.push(canvas.toDataURL());
+                    this.isDrawing=true; 
+                    ctx.beginPath(); 
+                    ctx.moveTo(e.offsetX, e.offsetY); 
+                };
                 canvas.onpointermove = (e) => { 
                     if(!this.isDrawing) return; 
                     ctx.lineTo(e.offsetX, e.offsetY); 
@@ -1362,12 +1375,42 @@
                     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
                 }
             }
+
+            undoSketch() {
+                if (this.undoStack.length === 0) return;
+                const previousState = this.undoStack.pop();
+                const img = new Image();
+                img.onload = () => {
+                    const c = $('sketch-canvas');
+                    this.wbCtx.clearRect(0,0, c.width, c.height);
+                    this.wbCtx.drawImage(img, 0, 0);
+                };
+                img.src = previousState;
+            }
+            
+            toggleEraser() {
+                this.isEraser = !this.isEraser;
+                const btn = $('btn-eraser');
+                if (this.isEraser) {
+                    this.lastColor = $('sketch-color').value;
+                    // If annotating an image, "erasing" is complex without layers.
+                    // For now, we will paint white, which acts as an eraser on white background
+                    // but will paint white lines over a photo. This is standard simple behavior.
+                    $('sketch-color').value = '#ffffff'; 
+                    btn.classList.add('bg-slate-200', 'text-blue-600');
+                } else {
+                    $('sketch-color').value = this.lastColor; // Restore color
+                    btn.classList.remove('bg-slate-200', 'text-blue-600');
+                }
+            }
             
             saveSketch() {
                 $('sketch-canvas').toBlob((blob) => {
                     if (blob) {
                         this.closeSketch();
-                        this.handleFileSelect(blob, false, 'sketch'); // Pass type 'sketch'
+                        // Check if we were editing an existing item
+                        const existingId = (state.editMode && state.currentItem) ? state.currentItem.id : null;
+                        this.handleFileSelect(blob, false, 'sketch', existingId);
                     } else {
                         showToast("Error saving sketch");
                     }
@@ -1375,44 +1418,76 @@
             }
             
             annotateImage() {
-                // Takes current modal image and puts it on sketch canvas
-                const imgEl = $('modal-img-preview');
-                this.closeCaptionModal();
-                $('modal-sketch').classList.remove('hidden');
-                setTimeout(() => {
-                     const canvas = $('sketch-canvas');
-                     const wrap = $('sketch-wrapper');
-                     canvas.width = wrap.clientWidth;
-                     canvas.height = wrap.clientHeight;
-                     const ctx = canvas.getContext('2d');
-                     this.wbCtx = ctx;
-                     
-                     ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
-                     // Draw image centered/scaled
-                     const img = new Image();
-                     img.crossOrigin = "Anonymous";
-                     img.onload = () => {
-                         const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-                         const x = (canvas.width / 2) - (img.width / 2) * scale;
-                         const y = (canvas.height / 2) - (img.height / 2) * scale;
-                         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-                         
-                         // STORE IMAGE FOR CLEAR FUNCTION
-                         this.bgImage = img;
-                     };
-                     img.src = imgEl.src;
-                     
-                     // Re-bind drawing events (same as openSketch)
-                     this.isDrawing = false;
-                     canvas.onpointerdown = (e) => { this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-                     canvas.onpointermove = (e) => { 
+                // Check if we are in Edit Mode and have a raw file
+                const current = state.currentItem;
+                const useRaw = state.editMode && current && current.rawStoragePath;
+
+                // Helper to load image into canvas
+                const loadToCanvas = (src) => {
+                    const canvas = $('sketch-canvas');
+                    const wrap = $('sketch-wrapper');
+                    canvas.width = wrap.clientWidth;
+                    canvas.height = wrap.clientHeight;
+                    const ctx = canvas.getContext('2d');
+                    this.wbCtx = ctx;
+                    this.undoStack = []; // Reset stack
+                    
+                    ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
+                    
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous"; // CRITICAL for Firebase Storage
+                    img.onload = () => {
+                        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                        const x = (canvas.width / 2) - (img.width / 2) * scale;
+                        const y = (canvas.height / 2) - (img.height / 2) * scale;
+                        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                        this.bgImage = img; // Store for clear/undo logic
+                        toggleLoader(false);
+                    };
+                    img.onerror = () => {
+                        toggleLoader(false);
+                        showToast("Error loading image for editing");
+                    };
+                    img.src = src;
+
+                    // Re-bind events
+                    this.isDrawing = false;
+                    canvas.onpointerdown = (e) => { 
+                        this.undoStack.push(canvas.toDataURL());
+                        this.isDrawing=true; 
+                        ctx.beginPath(); 
+                        ctx.moveTo(e.offsetX, e.offsetY); 
+                    };
+                    canvas.onpointermove = (e) => { 
                         if(!this.isDrawing) return; 
                         ctx.lineTo(e.offsetX, e.offsetY); 
                         ctx.strokeStyle = $('sketch-color').value;
                         ctx.lineWidth = $('sketch-size').value;
                         ctx.stroke(); 
-                     };
-                     canvas.onpointerup = () => this.isDrawing = false;
+                    };
+                    canvas.onpointerup = () => this.isDrawing = false;
+                };
+
+                this.closeCaptionModal();
+                $('modal-sketch').classList.remove('hidden');
+                
+                // Logic to fetch correct image source
+                setTimeout(async () => {
+                    if (useRaw) {
+                        toggleLoader(true, "Loading Raw Image...");
+                        try {
+                            const url = await getDownloadURL(ref(state.storage, current.rawStoragePath));
+                            loadToCanvas(url);
+                        } catch (e) {
+                            console.error("Failed to load raw image", e);
+                            toggleLoader(false);
+                            // Fallback to preview image if raw fails
+                            loadToCanvas($('modal-img-preview').src);
+                        }
+                    } else {
+                        // Use the preview image (new photo or simple sketch)
+                        loadToCanvas($('modal-img-preview').src);
+                    }
                 }, 100);
             }
 
