@@ -537,6 +537,25 @@
                 window.addEventListener('offline', () => this.updateConnectionStatus(false));
                 this.updateConnectionStatus(navigator.onLine);
             }
+
+            initSensors() {
+                // GPS
+                if(navigator.geolocation) {
+                    navigator.geolocation.watchPosition(p => {
+                        state.location = { lat: p.coords.latitude, lng: p.coords.longitude };
+                        $('gps-val').innerText = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+                        $('gps-val').className = "text-xs font-mono font-bold text-green-600 truncate w-full";
+                        if(!state.weather.temp) this.fetchWeather(p.coords.latitude, p.coords.longitude);
+                    }, e => {
+                        $('gps-val').innerText = "No Signal";
+                        $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
+                    }, { enableHighAccuracy: true });
+                }
+
+                // Compass (Requires explicit permission on iOS)
+                // We listen for events, but UI triggers requestCompass()
+                window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+            }
             
             toggleForceOffline() {
                 state.forcedOffline = !state.forcedOffline;
@@ -629,34 +648,27 @@
             listenToSharedProjects() {
                 const q = query(collection(state.db, `artifacts/${appId}/public/data/projects`), orderBy('name'));
                 onSnapshot(q, (snap) => {
+                    const newSet = new Set();
                     snap.forEach(d => {
-                        state.projects.add(d.data().name);
+                        newSet.add(d.data().name);
                     });
+                    
+                    // Updates local state
+                    state.projects = newSet;
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
-                    this.updateProjectUI(); // Refresh dropdown
+                    
+                    // Safety: If current project is gone, switch to another
+                    if (!state.projects.has(state.project) && state.projects.size > 0) {
+                        const next = Array.from(state.projects)[0];
+                        this.switchProject(next);
+                        showToast(`Project deleted remotely. Switched to ${next}`);
+                    }
+                    
+                    this.updateProjectUI(); 
                 });
             }
 
             // --- SENSORS ---
-            initSensors() {
-                // GPS
-                if(navigator.geolocation) {
-                    navigator.geolocation.watchPosition(p => {
-                        state.location = { lat: p.coords.latitude, lng: p.coords.longitude };
-                        $('gps-val').innerText = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
-                        $('gps-val').className = "text-xs font-mono font-bold text-green-600 truncate w-full";
-                        if(!state.weather.temp) this.fetchWeather(p.coords.latitude, p.coords.longitude);
-                    }, e => {
-                        $('gps-val').innerText = "No Signal";
-                        $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
-                    }, { enableHighAccuracy: true });
-                }
-
-                // Compass (Requires explicit permission on iOS)
-                // We listen for events, but UI triggers requestCompass()
-                window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
-            }
-
             async requestCompass() {
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     try {
