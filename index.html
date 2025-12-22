@@ -1704,6 +1704,7 @@
                 const doc = new jsPDF();
                 let y = 20;
                 const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight(); // Get height for checks
                 
                 // Title Page
                 doc.setFontSize(22); 
@@ -1730,29 +1731,49 @@
                     
                     for(let i=0; i<photos.length; i++) {
                         const p = photos[i];
-                        // Check space: Image (100) + Text (20) + Margin (10) = ~130
-                        if(y + 130 > doc.internal.pageSize.getHeight()) { 
-                            doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
-                        }
                         
                         try {
                             const imgData = await this.urlToBase64(p.url);
                             // --- FIX: CALCULATE ASPECT RATIO ---
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
-                            const displayW = 170; // Fixed width
-                            const displayH = displayW * ratio; // Proportional height
+                            
+                            // Dimensions for 2-per-page layout
+                            const maxW = 170; // Max width available
+                            const maxH = 100; // Max height to ensure 2 fit vertically (approx half usable space minus text)
+                            
+                            let displayW = maxW;
+                            let displayH = displayW * ratio;
 
-                            // Add new page check based on dynamic height
-                            if (y + displayH + 30 > doc.internal.pageSize.getHeight()) {
-                                doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
+                            // If height exceeds max allowed for 2-up, scale down
+                            if (displayH > maxH) {
+                                displayH = maxH;
+                                displayW = displayH / ratio;
                             }
 
-                            doc.addImage(imgData, 'JPEG', 20, y, displayW, displayH);
-                            doc.setDrawColor(200); 
-                            doc.rect(20, y, displayW, displayH); // Border matches exact image size
+                            // Metadata Block Height (approx)
+                            // Photo Title + Date line + Caption (variable)
+                            // Let's pre-calculate caption height
+                            doc.setFontSize(9);
+                            const caption = p.caption || p.detailedDesc || "No caption";
+                            const splitText = doc.splitTextToSize(caption, 170);
+                            const textBlockH = 15 + (splitText.length * 5); // 15 for header/date, rest for caption
+
+                            const totalBlockH = displayH + textBlockH + 10; // +10 margin
+
+                            // Check space
+                            if (y + totalBlockH > pageHeight - 20) { // -20 for bottom margin
+                                doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
+                            }
                             
-                            y += displayH + 5; // Move down by actual image height
+                            // Center image horizontally
+                            const x = 20 + (maxW - displayW) / 2;
+
+                            doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
+                            doc.setDrawColor(200); 
+                            doc.rect(x, y, displayW, displayH); // Border matches exact image size
+                            
+                            y += displayH + 5; // Move down
                             
                             // Text block below image
                             doc.setFontSize(10); 
@@ -1765,11 +1786,9 @@
                             
                             y += 5;
                             doc.setFontSize(9);
-                            const caption = p.caption || p.detailedDesc || "No caption";
-                            const splitText = doc.splitTextToSize(caption, 170);
                             doc.text(splitText, 20, y);
                             
-                            y += (splitText.length * 5) + 10;
+                            y += (splitText.length * 5) + 10; // Padding for next item
                         } catch(e) {
                             console.error("PDF Image Error", e);
                         }
