@@ -1846,16 +1846,11 @@
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
                             const maxW = 170; 
-                            const maxH = 105; // Set explicit max height to force 2 per page if tall
+                            const maxH = 100; 
                             
                             let displayW = maxW;
                             let displayH = displayW * ratio;
-                            
-                            // Height check
-                            if (displayH > maxH) {
-                                displayH = maxH;
-                                displayW = displayH / ratio;
-                            }
+                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
 
                             doc.setFontSize(9);
                             const caption = p.caption || p.detailedDesc || "No caption";
@@ -1867,7 +1862,7 @@
                                 doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                             }
                             
-                            const x = 20 + (maxW - displayW) / 2; // Center horz
+                            const x = 20 + (maxW - displayW) / 2;
                             doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
                             doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
                             y += displayH + 5; 
