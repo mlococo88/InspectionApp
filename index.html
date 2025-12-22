@@ -360,6 +360,22 @@
             </div>
 
             <div class="border-t border-slate-200 my-4"></div>
+
+            <!-- STORAGE METER -->
+            <div class="mb-4">
+                 <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Storage Used</span>
+                    <span id="storage-text" class="text-[10px] text-slate-400">0 MB / 5 GB</span>
+                 </div>
+                 <div class="w-full bg-slate-200 rounded-full h-2 mb-2">
+                    <div id="storage-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                 </div>
+                 <button onclick="window.app.calculateStorageUsage()" class="w-full text-xs font-bold text-blue-600 border border-blue-200 rounded py-1 hover:bg-blue-50 transition">
+                    Check Usage
+                 </button>
+            </div>
+
+            <div class="border-t border-slate-200 my-4"></div>
             
             <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">New Project</label>
             <div class="flex gap-2 mb-4">
@@ -413,7 +429,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, deleteDoc, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject, getMetadata } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // CONFIG
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'field-notes-v2';
@@ -748,6 +764,60 @@
                         opt.value = p; opt.text = p; opt.selected = (p === state.project);
                         sel.appendChild(opt);
                     });
+                }
+            }
+            
+            // --- STORAGE CALCULATION ---
+            async calculateStorageUsage() {
+                if(!state.online) return showToast("Must be online to calculate");
+                
+                toggleLoader(true, "Calculating Storage...");
+                const bar = $('storage-bar');
+                const text = $('storage-text');
+                const limit = 5 * 1024 * 1024 * 1024; // 5 GB
+                
+                try {
+                    // Recursive function to sum file sizes
+                    const getFolderSize = async (folderRef) => {
+                        let total = 0;
+                        const res = await listAll(folderRef);
+                        
+                        // Process files
+                        const filePromises = res.items.map(async (item) => {
+                            try {
+                                const meta = await getMetadata(item);
+                                return meta.size;
+                            } catch(e) { return 0; }
+                        });
+                        
+                        const fileSizes = await Promise.all(filePromises);
+                        total += fileSizes.reduce((a, b) => a + b, 0);
+                        
+                        // Process subfolders
+                        for (const prefix of res.prefixes) {
+                            total += await getFolderSize(prefix);
+                        }
+                        
+                        return total;
+                    };
+                    
+                    const rootRef = ref(state.storage, `artifacts/${appId}/public/data/files`);
+                    const totalBytes = await getFolderSize(rootRef);
+                    
+                    const mb = (totalBytes / (1024 * 1024)).toFixed(1);
+                    const percent = Math.min((totalBytes / limit) * 100, 100);
+                    
+                    text.innerText = `${mb} MB / 5 GB`;
+                    bar.style.width = `${percent}%`;
+                    
+                    // Visual color coding
+                    bar.className = `h-2 rounded-full transition-all duration-500 ${percent > 90 ? 'bg-red-500' : (percent > 70 ? 'bg-orange-500' : 'bg-blue-600')}`;
+                    
+                } catch(e) {
+                    console.error("Storage calc error", e);
+                    showToast("Calc Error");
+                } finally {
+                    toggleLoader(false);
                 }
             }
 
@@ -1904,16 +1974,11 @@
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
                             const maxW = 170; 
-                            const maxH = 95; 
+                            const maxH = 100; 
                             
                             let displayW = maxW;
                             let displayH = displayW * ratio;
-                            
-                            // Height check
-                            if (displayH > maxH) {
-                                displayH = maxH;
-                                displayW = displayH / ratio;
-                            }
+                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
 
                             doc.setFontSize(9);
                             const caption = p.caption || p.detailedDesc || "No caption";
@@ -1925,7 +1990,7 @@
                                 doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                             }
                             
-                            const x = 20 + (maxW - displayW) / 2; // Center horz
+                            const x = 20 + (maxW - displayW) / 2;
                             doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
                             doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
                             y += displayH + 5; 
@@ -1941,8 +2006,7 @@
                             y += 5;
                             doc.setFontSize(9);
                             doc.text(splitText, 20, y);
-                            
-                            y += (splitText.length * 5) + 10; // Padding for next item
+                            y += (splitText.length * 5) + 10;
                         } catch(e) { console.error("PDF Image Error", e); }
                     }
                 };
