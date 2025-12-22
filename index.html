@@ -1388,34 +1388,6 @@
                     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
                 }
             }
-
-            undoSketch() {
-                if (this.undoStack.length === 0) return;
-                const previousState = this.undoStack.pop();
-                const img = new Image();
-                img.onload = () => {
-                    const c = $('sketch-canvas');
-                    this.wbCtx.clearRect(0,0, c.width, c.height);
-                    this.wbCtx.drawImage(img, 0, 0);
-                };
-                img.src = previousState;
-            }
-            
-            toggleEraser() {
-                this.isEraser = !this.isEraser;
-                const btn = $('btn-eraser');
-                if (this.isEraser) {
-                    this.lastColor = $('sketch-color').value;
-                    // If annotating an image, "erasing" is complex without layers.
-                    // For now, we will paint white, which acts as an eraser on white background
-                    // but will paint white lines over a photo. This is standard simple behavior.
-                    $('sketch-color').value = '#ffffff'; 
-                    btn.classList.add('bg-slate-200', 'text-blue-600');
-                } else {
-                    $('sketch-color').value = this.lastColor; // Restore color
-                    btn.classList.remove('bg-slate-200', 'text-blue-600');
-                }
-            }
             
             saveSketch() {
                 $('sketch-canvas').toBlob((blob) => {
@@ -1831,7 +1803,10 @@
             // --- EXPORTS ---
             async genPDF() {
                 // Filter items based on checkbox state (excluded list)
-                const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
+                // Sort chronologically (Oldest first) for the report
+                const exportItems = state.items
+                    .filter(i => !state.excludedReportItems.has(i.id))
+                    .sort((a, b) => a.timestamp - b.timestamp);
                 
                 if(exportItems.length === 0) return showToast("No items selected for report");
 
@@ -1871,11 +1846,16 @@
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
                             const maxW = 170; 
-                            const maxH = 100; 
+                            const maxH = 105; // Set explicit max height to force 2 per page if tall
                             
                             let displayW = maxW;
                             let displayH = displayW * ratio;
-                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
+                            
+                            // Height check
+                            if (displayH > maxH) {
+                                displayH = maxH;
+                                displayW = displayH / ratio;
+                            }
 
                             doc.setFontSize(9);
                             const caption = p.caption || p.detailedDesc || "No caption";
@@ -1887,7 +1867,7 @@
                                 doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                             }
                             
-                            const x = 20 + (maxW - displayW) / 2;
+                            const x = 20 + (maxW - displayW) / 2; // Center horz
                             doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
                             doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
                             y += displayH + 5; 
