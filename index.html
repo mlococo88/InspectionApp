@@ -1248,7 +1248,7 @@
 
                             // Data Block
                             const lines = [
-                                `PROJECT: ${meta.projectId}`,
+                                `PROJECT: ${meta.projectId}  |  PHOTO #${meta.photoNumber}`,
                                 `DATE: ${meta.dateString}`,
                                 `GPS: ${meta.lat ? meta.lat.toFixed(6) : '--'}, ${meta.lng ? meta.lng.toFixed(6) : '--'}`,
                                 `HEADING: ${meta.heading ? Math.round(meta.heading)+'°' : '--'}`,
@@ -1737,12 +1737,24 @@
                         
                         try {
                             const imgData = await this.urlToBase64(p.url);
-                            doc.addImage(imgData, 'JPEG', 20, y, 170, 100); // W=170, H=100 (aspect ratio might vary, but fixed for report)
+                            // --- FIX: CALCULATE ASPECT RATIO ---
+                            const imgProps = doc.getImageProperties(imgData);
+                            const ratio = imgProps.height / imgProps.width;
+                            const displayW = 170; // Fixed width
+                            const displayH = displayW * ratio; // Proportional height
+
+                            // Add new page check based on dynamic height
+                            if (y + displayH + 30 > doc.internal.pageSize.getHeight()) {
+                                doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
+                            }
+
+                            doc.addImage(imgData, 'JPEG', 20, y, displayW, displayH);
+                            doc.setDrawColor(200); 
+                            doc.rect(20, y, displayW, displayH); // Border matches exact image size
                             
-                            // Draw border
-                            doc.setDrawColor(200); doc.rect(20, y, 170, 100);
+                            y += displayH + 5; // Move down by actual image height
                             
-                            y += 105;
+                            // Text block below image
                             doc.setFontSize(10); 
                             doc.setFont("helvetica", "bold");
                             doc.text(`Photo #${p.photoNumber || (i+1)}`, 20, y);
