@@ -165,6 +165,7 @@
                     <div class="flex bg-slate-100 rounded-lg p-1">
                         <button onclick="window.app.setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded text-xs font-bold transition bg-white shadow text-slate-800">All</button>
                         <button onclick="window.app.setFilter('photo')" id="filter-photo" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Photos</button>
+                        <button onclick="window.app.setFilter('sketch')" id="filter-sketch" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Sketches</button>
                         <button onclick="window.app.setFilter('note')" id="filter-note" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Notes</button>
                     </div>
                 </div>
@@ -422,7 +423,7 @@
             location: null, weather: { temp: '', desc: '' }, heading: null,
             filter: 'all', path: `artifacts/${appId}/public/data/files`,
             items: [], seriesMode: false, queue: [],
-            pendingBlob: null, pendingId: null, editMode: false,
+            pendingBlob: null, pendingId: null, editMode: false, pendingType: 'photo',
             tempMeta: null, // Holds EXIF data temporarily
             online: navigator.onLine, // Connection state
             forcedOffline: false, // User override
@@ -573,6 +574,8 @@
                         if(item.type === 'note') {
                             await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta);
                         } else {
+                            // Ensure meta.type is present, default to 'photo' if missing in older pending items
+                            item.meta.type = item.type || 'photo'; 
                             await this.uploadWorkflow(item.blob, item.meta, item.doOverlay);
                         }
                         await this.offlineMgr.removeFromOutbox(item.id);
@@ -829,7 +832,7 @@
                 $('gallery-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], true));
             }
 
-            handleFileSelect(file, isGallery) {
+            handleFileSelect(file, isGallery, type = 'photo') {
                 if(!file) return;
                 
                 // HEIC Conversion Logic
@@ -841,7 +844,7 @@
                         // Re-assign name property to blob for consistency - FIXED to create proper File
                         const name = (file.name ? file.name.replace(/\.[^/.]+$/, "") : "image") + ".jpg";
                         const newFile = new File([jpgBlob], name, { type: "image/jpeg" });
-                        this.processBlob(newFile, true);
+                        this.processBlob(newFile, true, type);
                     }).catch(e => {
                         toggleLoader(false);
                         alert("HEIC conversion failed. Please try a different photo.");
@@ -850,12 +853,13 @@
                     return;
                 }
 
-                this.processBlob(file, isGallery);
+                this.processBlob(file, isGallery, type);
             }
 
-            processBlob(file, isGallery) {
+            processBlob(file, isGallery, type = 'photo') {
                 state.pendingBlob = file;
                 state.pendingId = Date.now().toString();
+                state.pendingType = type; // Store type
                 state.editMode = false;
                 $('camera-input').value = ''; // Reset
                 $('gallery-input').value = ''; // Reset
@@ -1026,6 +1030,7 @@
                 state.pendingBlob = null;
                 state.tempMeta = null;
                 state.batchMode = false; // Reset
+                state.pendingType = 'photo'; // Reset to default
                 $('btn-save-upload').innerText = "Save"; // Reset button text
             }
 
@@ -1101,6 +1106,8 @@
                             currentMax++; // Increment for this item
                             // Pass overrideNum to createMeta
                             const meta = this.createMeta(item.id, item.timestamp, null, currentMax);
+                            // Force type photo for batch (series is photo only)
+                            meta.type = 'photo';
 
                             if (!state.online) {
                                 return this.offlineMgr.addToOutbox({
@@ -1134,6 +1141,9 @@
                 const meta = this.createMeta(state.pendingId, Date.now());
                 const doOverlay = $('burn-toggle').checked;
                 const blobToUpload = state.pendingBlob; // Capture blob before closing modal
+                
+                // Use the pending type (photo or sketch)
+                meta.type = state.pendingType || 'photo';
 
                 // OFFLINE HANDLING
                 if(!state.online) {
@@ -1143,7 +1153,7 @@
                         blob: blobToUpload,
                         meta: meta,
                         doOverlay: doOverlay,
-                        type: 'photo'
+                        type: meta.type
                     });
                     this.closeCaptionModal();
                     toggleLoader(false);
@@ -1197,7 +1207,9 @@
                 // 4. Save DB Entry
                 meta.url = url;
                 meta.storagePath = dispPath;
-                meta.type = 'photo';
+                // Ensure type is set (defaults to photo if undefined, but should be passed in meta)
+                if(!meta.type) meta.type = 'photo';
+                
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, meta.id), meta);
             }
 
@@ -1355,7 +1367,7 @@
                 $('sketch-canvas').toBlob((blob) => {
                     if (blob) {
                         this.closeSketch();
-                        this.handleFileSelect(blob);
+                        this.handleFileSelect(blob, false, 'sketch'); // Pass type 'sketch'
                     } else {
                         showToast("Error saving sketch");
                     }
@@ -1473,17 +1485,17 @@
                     const div = document.createElement('div');
                     div.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex transition hover:shadow-md";
                     
-                    if(item.type === 'photo') {
+                    if(item.type === 'photo' || item.type === 'sketch') {
                         div.innerHTML = `
                             <div class="w-24 h-24 bg-slate-200 relative cursor-pointer flex-none flex items-center justify-center text-slate-400" onclick="window.app.showDetail('${item.id}')">
-                                <i data-lucide="image" class="w-8 h-8 absolute"></i>
+                                <i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i>
                                 <img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">
                             </div>
                             <div class="p-3 flex-1 flex flex-col justify-between overflow-hidden">
                                 <div>
                                     <div class="flex justify-between items-start">
                                         <div class="text-[10px] text-slate-400 font-mono mb-1">${item.dateString}</div>
-                                        <div class="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Photo #${item.photoNumber||'?'}</div>
+                                        <div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div>
                                     </div>
                                     <h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4>
                                     <p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p>
@@ -1518,7 +1530,7 @@
 
             setFilter(f) {
                 state.filter = f;
-                ['all','photo','note'].forEach(k => {
+                ['all','photo','sketch','note'].forEach(k => {
                     const btn = $(`filter-${k}`);
                     if(f===k) { btn.classList.remove('text-slate-500','hover:text-slate-700'); btn.classList.add('bg-white','shadow','text-slate-800'); }
                     else { btn.classList.add('text-slate-500','hover:text-slate-700'); btn.classList.remove('bg-white','shadow','text-slate-800'); }
@@ -1545,7 +1557,7 @@
                 const item = state.items.find(i => i.id === id);
                 if(!item) return;
                 state.currentItem = item;
-                if(item.type === 'photo') {
+                if(item.type === 'photo' || item.type === 'sketch') {
                     this.openCaptionModal(item.url, true);
                 } else {
                     // Quick alert prompt for note editing (simplification)
@@ -1586,9 +1598,13 @@
                 const bounds = [];
                 state.items.forEach(i => {
                     if(i.lat && i.lng) {
+                        let color = '#2563eb'; // blue for photo
+                        if (i.type === 'note') color = '#eab308'; // yellow
+                        if (i.type === 'sketch') color = '#9333ea'; // purple
+
                         const icon = L.divIcon({
                             className: 'custom-div-icon',
-                            html: `<div style="background-color:${i.type==='photo'?'#2563eb':'#eab308'}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                            html: `<div style="background-color:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
                             iconSize: [12, 12],
                             iconAnchor: [6, 6]
                         });
@@ -1704,7 +1720,7 @@
                 const doc = new jsPDF();
                 let y = 20;
                 const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight(); // Get height for checks
+                const pageHeight = doc.internal.pageSize.getHeight();
                 
                 // Title Page
                 doc.setFontSize(22); 
@@ -1714,123 +1730,92 @@
                 doc.text(`Project: ${state.project}`, pageWidth/2, 55, {align:'center'});
                 doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth/2, 65, {align:'center'});
                 
-                // Footer helper
                 const addFooter = (pageNum) => {
                     doc.setFontSize(8);
                     doc.text(`Page ${pageNum}`, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
                 };
-
                 let pageNum = 1;
                 addFooter(pageNum);
 
-                // 1. Photos & Sketches
-                const photos = state.items.filter(i => i.type === 'photo');
-                if(photos.length > 0) {
-                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
-                    doc.setFontSize(16); doc.text("Photo Log", 15, y); y += 15;
+                // Helper for Images (Photos & Sketches)
+                const addImagesToPDF = async (sectionTitle, items) => {
+                    if(items.length === 0) return;
                     
-                    for(let i=0; i<photos.length; i++) {
-                        const p = photos[i];
-                        
+                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
+                    doc.setFontSize(16); doc.text(sectionTitle, 15, y); y += 15;
+
+                    for(let i=0; i<items.length; i++) {
+                        const p = items[i];
                         try {
                             const imgData = await this.urlToBase64(p.url);
-                            // --- FIX: CALCULATE ASPECT RATIO ---
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
-                            
-                            // Dimensions for 2-per-page layout
-                            const maxW = 170; // Max width available
-                            const maxH = 100; // Max height to ensure 2 fit vertically (approx half usable space minus text)
+                            const maxW = 170; 
+                            const maxH = 100; 
                             
                             let displayW = maxW;
                             let displayH = displayW * ratio;
+                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
 
-                            // If height exceeds max allowed for 2-up, scale down
-                            if (displayH > maxH) {
-                                displayH = maxH;
-                                displayW = displayH / ratio;
-                            }
-
-                            // Metadata Block Height (approx)
-                            // Photo Title + Date line + Caption (variable)
-                            // Let's pre-calculate caption height
                             doc.setFontSize(9);
                             const caption = p.caption || p.detailedDesc || "No caption";
                             const splitText = doc.splitTextToSize(caption, 170);
-                            const textBlockH = 15 + (splitText.length * 5); // 15 for header/date, rest for caption
+                            const textBlockH = 15 + (splitText.length * 5); 
+                            const totalBlockH = displayH + textBlockH + 10; 
 
-                            const totalBlockH = displayH + textBlockH + 10; // +10 margin
-
-                            // Check space
-                            if (y + totalBlockH > pageHeight - 20) { // -20 for bottom margin
+                            if (y + totalBlockH > pageHeight - 20) { 
                                 doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                             }
                             
-                            // Center image horizontally
                             const x = 20 + (maxW - displayW) / 2;
-
                             doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
-                            doc.setDrawColor(200); 
-                            doc.rect(x, y, displayW, displayH); // Border matches exact image size
+                            doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
+                            y += displayH + 5; 
                             
-                            y += displayH + 5; // Move down
-                            
-                            // Text block below image
-                            doc.setFontSize(10); 
-                            doc.setFont("helvetica", "bold");
-                            doc.text(`Photo #${p.photoNumber || (i+1)}`, 20, y);
+                            doc.setFontSize(10); doc.setFont("helvetica", "bold");
+                            // For Sketches, we don't usually have a Photo #, just title
+                            const label = p.type === 'sketch' ? (p.title || 'Sketch') : `Photo #${p.photoNumber || (i+1)}`;
+                            doc.text(label, 20, y);
                             
                             doc.setFont("helvetica", "normal");
                             const dateStr = p.dateString || new Date(p.timestamp).toLocaleString();
                             doc.text(dateStr, 190, y, {align:'right'});
-                            
                             y += 5;
                             doc.setFontSize(9);
                             doc.text(splitText, 20, y);
-                            
-                            y += (splitText.length * 5) + 10; // Padding for next item
-                        } catch(e) {
-                            console.error("PDF Image Error", e);
-                        }
+                            y += (splitText.length * 5) + 10;
+                        } catch(e) { console.error("PDF Image Error", e); }
                     }
-                }
+                };
 
-                // 2. Field Notes
+                // 1. Field Notes (First)
                 const notes = state.items.filter(i => i.type === 'note');
                 if(notes.length > 0) {
                     doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
                     doc.setFontSize(16); doc.text("Field Notes", 15, y); y += 15;
-                    
                     notes.forEach((n, idx) => {
-                        if(y + 40 > doc.internal.pageSize.getHeight()) { 
-                            doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
-                        }
-                        
+                        if(y + 40 > pageHeight) { doc.addPage(); pageNum++; addFooter(pageNum); y = 20; }
                         doc.setDrawColor(220); doc.setFillColor(248, 250, 252);
-                        doc.roundedRect(15, y, 180, 0, 2, 2); // Background placeholder
-                        
-                        const startY = y;
-                        y += 5;
-                        
-                        doc.setFontSize(11); doc.setFont("helvetica", "bold");
-                        doc.text(n.title || "Note", 20, y);
-                        
-                        doc.setFontSize(9); doc.setFont("helvetica", "normal");
-                        doc.text(n.dateString, 185, y, {align:'right'});
-                        
+                        doc.roundedRect(15, y, 180, 0, 2, 2); 
+                        const startY = y; y += 5;
+                        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(n.title || "Note", 20, y);
+                        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(n.dateString, 185, y, {align:'right'});
                         y += 7;
                         const desc = n.text || n.detailedDesc || "";
                         const splitDesc = doc.splitTextToSize(desc, 170);
                         doc.text(splitDesc, 20, y);
-                        
                         y += (splitDesc.length * 5) + 10;
-                        
-                        // Draw box around the item
                         const height = y - startY - 5;
                         doc.rect(15, startY, 180, height);
                         y += 5;
                     });
                 }
+
+                // 2. Photo Log (Second)
+                await addImagesToPDF("Photo Log", state.items.filter(i => i.type === 'photo'));
+
+                // 3. Sketch Log (Third)
+                await addImagesToPDF("Sketch Log", state.items.filter(i => i.type === 'sketch'));
                 
                 doc.save(`${state.project}_Report.pdf`);
                 toggleLoader(false);
