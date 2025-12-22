@@ -235,7 +235,8 @@
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <div class="flex items-center gap-2 text-slate-700 font-bold">
-                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i> Field Observation
+                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i> 
+                    <span id="note-modal-title">Field Observation</span>
                 </div>
                 <button onclick="window.app.closeNotes()" class="p-1 rounded hover:bg-slate-200 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
@@ -251,7 +252,7 @@
             </div>
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
                 <button onclick="window.app.closeNotes()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
-                <button onclick="window.app.saveNote()" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
+                <button id="btn-save-note" onclick="window.app.saveNote()" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
             </div>
         </div>
     </div>
@@ -431,7 +432,8 @@
             online: navigator.onLine, // Connection state
             forcedOffline: false, // User override
             batchMode: false, // Flag for batch upload workflow
-            excludedReportItems: new Set() // IDs of items to exclude from report
+            excludedReportItems: new Set(), // IDs of items to exclude from report
+            editingNoteId: null // ID of the note currently being edited
         };
 
         // UTILS
@@ -1388,6 +1390,34 @@
                     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
                 }
             }
+
+            undoSketch() {
+                if (this.undoStack.length === 0) return;
+                const previousState = this.undoStack.pop();
+                const img = new Image();
+                img.onload = () => {
+                    const c = $('sketch-canvas');
+                    this.wbCtx.clearRect(0,0, c.width, c.height);
+                    this.wbCtx.drawImage(img, 0, 0);
+                };
+                img.src = previousState;
+            }
+            
+            toggleEraser() {
+                this.isEraser = !this.isEraser;
+                const btn = $('btn-eraser');
+                if (this.isEraser) {
+                    this.lastColor = $('sketch-color').value;
+                    // If annotating an image, "erasing" is complex without layers.
+                    // For now, we will paint white, which acts as an eraser on white background
+                    // but will paint white lines over a photo. This is standard simple behavior.
+                    $('sketch-color').value = '#ffffff'; 
+                    btn.classList.add('bg-slate-200', 'text-blue-600');
+                } else {
+                    $('sketch-color').value = this.lastColor; // Restore color
+                    btn.classList.remove('bg-slate-200', 'text-blue-600');
+                }
+            }
             
             saveSketch() {
                 $('sketch-canvas').toBlob((blob) => {
@@ -1477,8 +1507,21 @@
             }
 
             // --- NOTES ---
-            openNotes() {
+            openNotes(item = null) {
                 $('modal-notes').classList.remove('hidden');
+                if (item) {
+                    state.editingNoteId = item.id;
+                    $('note-title').value = item.title || '';
+                    $('note-text').value = item.text || item.detailedDesc || '';
+                    $('note-modal-title').innerText = "Edit Note";
+                    $('btn-save-note').innerText = "Update Note";
+                } else {
+                    state.editingNoteId = null;
+                    $('note-title').value = '';
+                    $('note-text').value = '';
+                    $('note-modal-title').innerText = "Field Observation";
+                    $('btn-save-note').innerText = "Save Note";
+                }
             }
 
             closeNotes() {
@@ -1492,25 +1535,43 @@
                 const text = $('note-text').value.trim();
                 if(!text && !title) return showToast("Empty Note");
 
-                const id = Date.now().toString();
-                const meta = {
-                    id, projectId: state.project, type: 'note',
-                    title, detailedDesc: text, text,
-                    timestamp: Date.now(), dateString: formatDate(Date.now()),
-                    lat: state.location?.lat, lng: state.location?.lng
-                };
+                let id = state.editingNoteId;
+                let isNew = false;
+                
+                if (!id) {
+                     id = Date.now().toString();
+                     isNew = true;
+                }
+
+                let meta;
+                if (isNew) {
+                     meta = {
+                        id, projectId: state.project, type: 'note',
+                        title, detailedDesc: text, text,
+                        timestamp: Date.now(), dateString: formatDate(Date.now()),
+                        lat: state.location?.lat || null, lng: state.location?.lng || null
+                    };
+                } else {
+                    const original = state.items.find(i => i.id === id);
+                    meta = {
+                        ...original,
+                        title, 
+                        detailedDesc: text, 
+                        text
+                    };
+                }
                 
                 // OFFLINE NOTE
                 if(!state.online) {
                     await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
                     this.closeNotes();
-                    showToast("Note Saved (Offline)");
+                    showToast(isNew ? "Note Saved (Offline)" : "Note Updated (Offline)");
                     return;
                 }
 
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
                 this.closeNotes();
-                showToast("Note Saved");
+                showToast(isNew ? "Note Saved" : "Note Updated");
                 this.switchTab('report');
             }
 
@@ -1647,11 +1708,8 @@
                 if(item.type === 'photo' || item.type === 'sketch') {
                     this.openCaptionModal(item.url, true);
                 } else {
-                    // Quick alert prompt for note editing (simplification)
-                    const newText = prompt("Edit Note Text:", item.text);
-                    if(newText !== null) {
-                         setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), { text: newText, detailedDesc: newText }, { merge: true });
-                    }
+                    // New logic
+                    this.openNotes(item);
                 }
             }
             
@@ -1846,11 +1904,16 @@
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
                             const maxW = 170; 
-                            const maxH = 100; 
+                            const maxH = 95; 
                             
                             let displayW = maxW;
                             let displayH = displayW * ratio;
-                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
+                            
+                            // Height check
+                            if (displayH > maxH) {
+                                displayH = maxH;
+                                displayW = displayH / ratio;
+                            }
 
                             doc.setFontSize(9);
                             const caption = p.caption || p.detailedDesc || "No caption";
@@ -1862,7 +1925,7 @@
                                 doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
                             }
                             
-                            const x = 20 + (maxW - displayW) / 2;
+                            const x = 20 + (maxW - displayW) / 2; // Center horz
                             doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
                             doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
                             y += displayH + 5; 
@@ -1878,7 +1941,8 @@
                             y += 5;
                             doc.setFontSize(9);
                             doc.text(splitText, 20, y);
-                            y += (splitText.length * 5) + 10;
+                            
+                            y += (splitText.length * 5) + 10; // Padding for next item
                         } catch(e) { console.error("PDF Image Error", e); }
                     }
                 };
