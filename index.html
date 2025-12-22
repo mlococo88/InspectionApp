@@ -1773,7 +1773,7 @@
                             y += displayH + 5; 
                             
                             doc.setFontSize(10); doc.setFont("helvetica", "bold");
-                            // Number sketches sequentially in the report
+                            // Number sketches sequentially in the report using 'i+1' for this section
                             const label = p.type === 'sketch' ? `Sketch ${i+1}` : `Photo #${p.photoNumber || (i+1)}`;
                             doc.text(label, 20, y);
                             
