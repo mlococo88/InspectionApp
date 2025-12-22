@@ -1773,8 +1773,8 @@
                             y += displayH + 5; 
                             
                             doc.setFontSize(10); doc.setFont("helvetica", "bold");
-                            // For Sketches, we don't usually have a Photo #, just title
-                            const label = p.type === 'sketch' ? (p.title || 'Sketch') : `Photo #${p.photoNumber || (i+1)}`;
+                            // Number sketches sequentially in the report
+                            const label = p.type === 'sketch' ? `Sketch ${i+1}` : `Photo #${p.photoNumber || (i+1)}`;
                             doc.text(label, 20, y);
                             
                             doc.setFont("helvetica", "normal");
